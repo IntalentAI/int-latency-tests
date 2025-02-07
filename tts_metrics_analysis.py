@@ -12,6 +12,11 @@ from pathlib import Path
 from typing import List, Dict
 from datetime import datetime
 import matplotlib.dates as mdates
+from loguru import logger
+import sys
+
+logger.remove(0)
+logger.add(sys.stderr, level="DEBUG")
 
 # Set the style for all visualizations
 plt.style.use('seaborn-v0_8')
@@ -22,8 +27,8 @@ def load_metrics_data(file_path: Path) -> pd.DataFrame:
     # Read the CSV file
     df = pd.read_csv(file_path)
     
-    # Print column names for debugging
-    print("Available columns:", df.columns.tolist())
+    # logger.info column names for debugging
+    logger.info("Available columns:", df.columns.tolist())
     
     # Map expected column names to actual column names
     column_mapping = {
@@ -57,7 +62,7 @@ def plot_latency_over_time(df: pd.DataFrame, output_dir: Path):
     
     # Get unique services
     services = df['service'].unique()
-    print(f"Found services: {services}")
+    logger.info(f"Found services: {services}")
     
     # Create one plot with all services
     for service in services:
@@ -95,7 +100,7 @@ def plot_latency_over_time(df: pd.DataFrame, output_dir: Path):
     output_file = output_dir / 'latency_over_time_combined.png'
     plt.savefig(output_file, bbox_inches='tight', dpi=300)
     plt.close()
-    print(f"Saved combined plot to {output_file}")
+    logger.info(f"Saved combined plot to {output_file}")
 
 def plot_latency_distribution(df: pd.DataFrame, output_dir: Path):
     """Plot latency distribution for each service separately."""
@@ -109,31 +114,64 @@ def plot_latency_distribution(df: pd.DataFrame, output_dir: Path):
     }
     
     for service in services:
-        service_df = df[df['service'] == service]
+        service_df = df[df['service'] == service].copy()  # Create a copy to avoid warnings
+        
+        # Drop any NaN values
+        service_df = service_df.dropna(subset=['ttfb_ms', 'e2e_latency_ms'])
         
         plt.figure(figsize=(12, 6))
         
         # Create violin plots for TTFB and E2E latency
-        data = [service_df['ttfb_ms'], service_df['e2e_latency_ms']]
+        data = [
+            service_df['ttfb_ms'].values,  # Explicitly get values
+            service_df['e2e_latency_ms'].values  # Explicitly get values
+        ]
+        
+        # Print debug info
+        logger.debug(f"{service} TTFB stats: min={service_df['ttfb_ms'].min():.1f}, max={service_df['ttfb_ms'].max():.1f}")
+        logger.debug(f"{service} E2E stats: min={service_df['e2e_latency_ms'].min():.1f}, max={service_df['e2e_latency_ms'].max():.1f}")
+        
         labels = ['TTFB', 'E2E Latency']
         
-        violin_parts = plt.violinplot(data, showmedians=True)
+        # Create violin plots with wider range and ensure data is plotted
+        violin_parts = plt.violinplot(data, showmedians=True, points=100, widths=0.7)
         
-        # Customize violin plot colors
+        # Customize violin plot colors and transparency
         for pc in violin_parts['bodies']:
             pc.set_facecolor(service_colors[service])
             pc.set_alpha(0.7)
         
-        # Add box plots inside violin plots
-        plt.boxplot(data, widths=0.2)
+        # Add box plots inside violin plots with outliers
+        box_parts = plt.boxplot(data, widths=0.2, showfliers=True, positions=[1,2])
+        
+        # Calculate and show statistics
+        ttfb_median = service_df['ttfb_ms'].median()
+        e2e_median = service_df['e2e_latency_ms'].median()
+        ttfb_95th = service_df['ttfb_ms'].quantile(0.95)
+        e2e_95th = service_df['e2e_latency_ms'].quantile(0.95)
+        
+        # Add statistics annotations with adjusted positions
+        plt.annotate(f'Median: {ttfb_median:.1f}ms\n95th: {ttfb_95th:.1f}ms', 
+                    xy=(1, ttfb_median), xytext=(0.6, ttfb_median),
+                    arrowprops=dict(facecolor='black', shrink=0.05))
+        plt.annotate(f'Median: {e2e_median:.1f}ms\n95th: {e2e_95th:.1f}ms', 
+                    xy=(2, e2e_median), xytext=(2.4, e2e_median),
+                    arrowprops=dict(facecolor='black', shrink=0.05))
         
         plt.title(f'{service} TTS Latency Distribution')
         plt.xticks([1, 2], labels)
         plt.ylabel('Latency (ms)')
         plt.grid(True, alpha=0.3)
         
+        # Ensure y-axis shows full range with some padding
+        max_latency = max(
+            service_df['e2e_latency_ms'].max(),
+            service_df['ttfb_ms'].max()
+        )
+        plt.ylim(0, max_latency * 1.2)  # 20% padding
+        
         # Save the plot
-        plt.savefig(output_dir / f'latency_distribution_{service.lower()}.png')
+        plt.savefig(output_dir / f'latency_distribution_{service.lower()}.png', bbox_inches='tight', dpi=300)
         plt.close()
 
 def plot_service_comparison(df: pd.DataFrame, output_dir: Path):
@@ -208,16 +246,24 @@ def calculate_statistics(df: pd.DataFrame) -> pd.DataFrame:
             'Mean TTFB (ms)': service_df['ttfb_ms'].mean(),
             'Median TTFB (ms)': service_df['ttfb_ms'].median(),
             'Std TTFB (ms)': service_df['ttfb_ms'].std(),
+            '95th Percentile TTFB (ms)': service_df['ttfb_ms'].quantile(0.95),
+            '99th Percentile TTFB (ms)': service_df['ttfb_ms'].quantile(0.99),
             'Mean E2E (ms)': service_df['e2e_latency_ms'].mean(),
             'Median E2E (ms)': service_df['e2e_latency_ms'].median(),
             'Std E2E (ms)': service_df['e2e_latency_ms'].std(),
             '95th Percentile E2E (ms)': service_df['e2e_latency_ms'].quantile(0.95),
+            '99th Percentile E2E (ms)': service_df['e2e_latency_ms'].quantile(0.99),
             'Processing Time (ms)': (service_df['e2e_latency_ms'] - service_df['ttfb_ms']).mean(),
             'Sample Size': len(service_df)
         }
         stats.append(service_stats)
     
-    return pd.DataFrame(stats)
+    # Round all numeric values to 2 decimal places
+    stats_df = pd.DataFrame(stats)
+    numeric_columns = stats_df.select_dtypes(include=['float64']).columns
+    stats_df[numeric_columns] = stats_df[numeric_columns].round(2)
+    
+    return stats_df
 
 def get_latest_metrics_file(data_dir: Path) -> Path:
     """Get the most recent metrics CSV file from the data directory."""
@@ -227,7 +273,7 @@ def get_latest_metrics_file(data_dir: Path) -> Path:
     
     # Sort by modification time, most recent first
     latest_file = max(metrics_files, key=lambda x: x.stat().st_mtime)
-    print(f"Using metrics file: {latest_file}")
+    logger.info(f"Using metrics file: {latest_file}")
     return latest_file
 
 def main():
@@ -241,11 +287,11 @@ def main():
     # Get latest metrics file
     try:
         metrics_file = get_latest_metrics_file(data_dir)
-        print(f"Using metrics file: {metrics_file}")
+        logger.info(f"Using metrics file: {metrics_file}")
         
         # Load and validate data
         df = load_metrics_data(metrics_file)
-        print(f"Loaded {len(df)} records")
+        logger.info(f"Loaded {len(df)} records")
         
         # Generate visualizations
         plot_latency_over_time(df, output_dir)
@@ -256,11 +302,11 @@ def main():
         stats_df = calculate_statistics(df)
         stats_file = output_dir / 'service_statistics.csv'
         stats_df.to_csv(stats_file, index=False)
-        print(f"\nService Statistics saved to {stats_file}")
-        print(stats_df.to_string())
+        logger.info(f"\nService Statistics saved to {stats_file}")
+        logger.info(stats_df.to_string())
         
     except Exception as e:
-        print(f"Error during analysis: {str(e)}")
+        logger.info(f"Error during analysis: {str(e)}")
         raise
 
 if __name__ == "__main__":

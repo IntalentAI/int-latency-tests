@@ -1,0 +1,181 @@
+Service,Region,Input Text,TTFB (ms),E2E Latency (ms),Start Time,End Time
+Azure,westus,Describe a situation where you had to implement a major system change.,504.34088706970215,506.32500648498535,1738968384.944284,1738968385.450609
+Deepgram,global,Describe a situation where you had to implement a major system change.,552.4919033050537,552.6189804077148,1738968385.451064,1738968386.003683
+OpenAI,global,Describe a situation where you had to implement a major system change.,1978.9321422576904,3095.7469940185547,1738968386.004632,1738968389.100379
+Azure,westus,Describe your approach to system architecture design.,133.68582725524902,203.13405990600586,1738968409.110822,1738968409.313956
+Deepgram,global,Describe your approach to system architecture design.,464.73002433776855,464.8401737213135,1738968409.315165,1738968409.7800052
+OpenAI,global,Describe your approach to system architecture design.,624.2492198944092,1265.2661800384521,1738968409.780882,1738968411.046148
+Azure,westus,"How do you ensure code quality in your projects, and what code review practices do you follow!",137.1290683746338,202.28815078735352,1738968431.054107,1738968431.256395
+Deepgram,global,"How do you ensure code quality in your projects, and what code review practices do you follow!",222.05495834350586,222.1388816833496,1738968431.257209,1738968431.479348
+OpenAI,global,"How do you ensure code quality in your projects, and what code review practices do you follow!",1425.6479740142822,2595.5629348754883,1738968431.480129,1738968434.075692
+Azure,westus,Describe your experience with automated testing frameworks.,102.02503204345703,203.69815826416016,1738968454.0852349,1738968454.288933
+Deepgram,global,Describe your experience with automated testing frameworks.,248.17895889282227,248.24905395507812,1738968454.29012,1738968454.538369
+OpenAI,global,Describe your experience with automated testing frameworks.,939.918041229248,3265.069007873535,1738968454.5391529,1738968457.8042219
+Azure,westus,How would you handle a situation with insufficient staff during peak hours! How would you prevent this in the future?,100.89707374572754,202.48103141784668,1738968477.813246,1738968478.015727
+Deepgram,global,How would you handle a situation with insufficient staff during peak hours! How would you prevent this in the future?,468.05810928344727,468.2281017303467,1738968478.017405,1738968478.4856331
+OpenAI,global,How would you handle a situation with insufficient staff during peak hours! How would you prevent this in the future?,2911.689043045044,5278.45311164856,1738968478.488312,1738968483.766765
+Azure,westus,Tell me about a time when you had to deal with a difficult customer? What was the outcome of that situation!,164.21103477478027,202.1200656890869,1738968503.777143,1738968503.979263
+Deepgram,global,Tell me about a time when you had to deal with a difficult customer? What was the outcome of that situation!,450.9150981903076,451.0371685028076,1738968503.9800398,1738968504.431077
+OpenAI,global,Tell me about a time when you had to deal with a difficult customer? What was the outcome of that situation!,880.0010681152344,3427.9539585113525,1738968504.431885,1738968507.859839
+Azure,westus,Tell me about a time you implemented a new feature from scratch!,157.74106979370117,158.13302993774414,1738968527.869489,1738968528.027622
+Deepgram,global,Tell me about a time you implemented a new feature from scratch!,242.51079559326172,242.57802963256836,1738968528.028151,1738968528.270729
+OpenAI,global,Tell me about a time you implemented a new feature from scratch!,1159.135103225708,2869.943141937256,1738968528.271693,1738968531.1416361
+Azure,westus,"How do you stay updated with retail industry trends, and how do you implement new trends in your work!",154.1130542755127,202.70586013793945,1738968551.150614,1738968551.35332
+Deepgram,global,"How do you stay updated with retail industry trends, and how do you implement new trends in your work!",236.35029792785645,236.43994331359863,1738968551.356881,1738968551.5933208
+OpenAI,global,"How do you stay updated with retail industry trends, and how do you implement new trends in your work!",950.7811069488525,3241.7430877685547,1738968551.594261,1738968808.751735
+Azure,westus,Tell me about a time you had to debug a production issue!,2523.634195327759,2548.4542846679688,1738968575.4387908,1738968577.987245
+Deepgram,global,Tell me about a time you had to debug a production issue!,382.24101066589355,382.3058605194092,1738968577.9879282,1738968578.370234
+OpenAI,global,Tell me about a time you had to debug a production issue!,989.1016483306885,2763.669013977051,1738968578.3711622,1738968581.1348312
+Azure,westus,"What's your experience with cloud platforms like AWS or Azure, and which services do you use most frequently?",137.2358798980713,137.8018856048584,1738968601.14341,1738968601.2812119
+Deepgram,global,"What's your experience with cloud platforms like AWS or Azure, and which services do you use most frequently?",227.7839183807373,227.92696952819824,1738968601.281636,1738968601.509563
+OpenAI,global,"What's your experience with cloud platforms like AWS or Azure, and which services do you use most frequently?",875.866174697876,2664.2980575561523,1738968601.510581,1738968604.174879
+Azure,westus,Describe your experience with containerization and Docker.,145.62296867370605,145.9369659423828,1738968624.185635,1738968624.331572
+Deepgram,global,Describe your experience with containerization and Docker.,224.54595565795898,224.61795806884766,1738968624.331985,1738968624.556603
+OpenAI,global,Describe your experience with containerization and Docker.,932.2092533111572,1618.0169582366943,1738968624.5574899,1738968626.1755068
+Azure,westus,Tell me about a time you implemented a complex algorithm.,125.22411346435547,125.60606002807617,1738968646.184897,1738968646.310503
+Deepgram,global,Tell me about a time you implemented a complex algorithm.,450.91891288757324,451.0037899017334,1738968646.310934,1738968646.7619379
+OpenAI,global,Tell me about a time you implemented a complex algorithm.,945.094108581543,2047.0459461212158,1738968646.763053,1738968648.810099
+Azure,westus,Tell me about a time you optimized a slow-performing query?,168.37310791015625,168.69211196899414,1738968668.819236,1738968668.9879282
+Deepgram,global,Tell me about a time you optimized a slow-performing query?,511.31319999694824,511.3680362701416,1738968668.988328,1738968669.499696
+OpenAI,global,Tell me about a time you optimized a slow-performing query?,879.1139125823975,1870.697259902954,1738968669.500614,1738968671.3713112
+Azure,westus,Tell me about a time when you had to deal with a difficult customer? What was the outcome of that situation!,163.90609741210938,164.58702087402344,1738968691.3789408,1738968691.5435278
+Deepgram,global,Tell me about a time when you had to deal with a difficult customer? What was the outcome of that situation!,460.9949588775635,461.0919952392578,1738968691.544074,1738968692.005166
+OpenAI,global,Tell me about a time when you had to deal with a difficult customer? What was the outcome of that situation!,1008.3940029144287,2688.215970993042,1738968692.006492,1738968694.6947079
+Azure,westus,How do you ensure excellent customer experience consistently?,102.49614715576172,205.18207550048828,1738968714.7054179,1738968714.9106
+Deepgram,global,How do you ensure excellent customer experience consistently?,254.5018196105957,254.57310676574707,1738968714.911766,1738968715.1663392
+OpenAI,global,How do you ensure excellent customer experience consistently?,699.6150016784668,1233.520269393921,1738968715.1671329,1738968716.4006531
+Azure,westus,How do you handle customer privacy concerns?,102.48804092407227,205.4591178894043,1738968736.410358,1738968736.615817
+Deepgram,global,How do you handle customer privacy concerns?,396.30675315856934,396.36707305908203,1738968736.617192,1738968737.013559
+OpenAI,global,How do you handle customer privacy concerns?,700.9339332580566,1186.0058307647705,1738968737.01527,1738968738.2012758
+Azure,westus,"How do you handle multiple competing priorities in a retail environment, and what tools do you use to stay organized?",165.09103775024414,165.57908058166504,1738968758.211106,1738968758.3766851
+Deepgram,global,"How do you handle multiple competing priorities in a retail environment, and what tools do you use to stay organized?",511.4758014678955,511.5938186645508,1738968758.377223,1738968758.8888168
+OpenAI,global,"How do you handle multiple competing priorities in a retail environment, and what tools do you use to stay organized?",799.1669178009033,3473.8540649414062,1738968758.889785,1738968762.363639
+Azure,westus,Describe a situation where you had to implement a major system change.,130.07593154907227,205.02567291259766,1738968782.374447,1738968782.5794728
+Deepgram,global,Describe a situation where you had to implement a major system change.,244.48704719543457,244.5671558380127,1738968782.58092,1738968782.8254871
+OpenAI,global,Describe a situation where you had to implement a major system change.,1001.4100074768066,2006.9360733032227,1738968782.826516,1738968784.833452
+Azure,westus,"How do you stay updated with retail industry trends, and how do you implement new trends in your work!",152.5111198425293,152.94504165649414,1738968804.845283,1738968804.998228
+Deepgram,global,"How do you stay updated with retail industry trends, and how do you implement new trends in your work!",510.8029842376709,510.8509063720703,1738968804.99867,1738968805.509521
+OpenAI,global,"How do you stay updated with retail industry trends, and how do you implement new trends in your work!",1594.130277633667,,1738968805.509992,
+Azure,westus,What's your experience with unit testing and test-driven development?,167.12498664855957,203.20510864257812,1738968828.762644,1738968828.9658492
+Deepgram,global,What's your experience with unit testing and test-driven development?,250.1821517944336,250.36311149597168,1738968828.966696,1738968829.2170591
+OpenAI,global,What's your experience with unit testing and test-driven development?,596.8060493469238,1347.6920127868652,1738968829.217723,1738968830.565415
+Azure,westus,How do you handle customer service during high-stress periods?,101.55797004699707,115.2338981628418,1738968850.577759,1738968850.692993
+Deepgram,global,How do you handle customer service during high-stress periods?,257.0469379425049,257.11989402770996,1738968850.693581,1738968850.950701
+OpenAI,global,How do you handle customer service during high-stress periods?,1043.0669784545898,3099.8189449310303,1738968850.951704,1738968854.051523
+Azure,westus,How do you ensure excellent customer experience consistently?,1001.9848346710205,1013.4897232055664,1738968874.0601091,1738968875.0735989
+Deepgram,global,How do you ensure excellent customer experience consistently?,473.9341735839844,474.0121364593506,1738968875.0742059,1738968875.548218
+OpenAI,global,How do you ensure excellent customer experience consistently?,646.6021537780762,1343.1949615478516,1738968875.549166,1738968876.892361
+Azure,westus,Describe your approach to documentation and knowledge sharing.,102.39195823669434,205.1830291748047,1738968896.904184,1738968897.1093671
+Deepgram,global,Describe your approach to documentation and knowledge sharing.,451.4749050140381,451.5540599822998,1738968897.1105301,1738968897.5620842
+OpenAI,global,Describe your approach to documentation and knowledge sharing.,1005.5382251739502,1631.657361984253,1738968897.5630348,1738968899.1946921
+Azure,westus,How do you handle store opening and closing procedures?,138.1850242614746,138.5359764099121,1738968919.205268,1738968919.343804
+Deepgram,global,How do you handle store opening and closing procedures?,402.82702445983887,402.93288230895996,1738968919.344362,1738968919.747295
+OpenAI,global,How do you handle store opening and closing procedures?,922.1639633178711,1455.9597969055176,1738968919.748291,1738968921.2042508
+Azure,westus,How do you handle error logging and monitoring?,465.38639068603516,509.0911388397217,1738968941.2127419,1738968941.721833
+Deepgram,global,How do you handle error logging and monitoring?,225.13103485107422,225.18301010131836,1738968941.72306,1738968941.948243
+OpenAI,global,How do you handle error logging and monitoring?,726.9110679626465,1596.276044845581,1738968941.949014,1738968943.54529
+Azure,westus,"Describe your experience with version control systems, particularly Git! How do you handle merge conflicts?",2542.8481101989746,2848.3221530914307,1738968963.559435,1738968966.407757
+Deepgram,global,"Describe your experience with version control systems, particularly Git! How do you handle merge conflicts?",500.0448226928711,500.1499652862549,1738968966.409145,1738968966.909295
+OpenAI,global,"Describe your experience with version control systems, particularly Git! How do you handle merge conflicts?",750.838041305542,2156.512975692749,1738968966.910212,1738968969.066725
+Azure,westus,Describe your approach to system architecture design.,102.38885879516602,119.77005004882812,1738968989.075187,1738968989.194957
+Deepgram,global,Describe your approach to system architecture design.,451.95603370666504,452.0590305328369,1738968989.195627,1738968989.647686
+OpenAI,global,Describe your approach to system architecture design.,1320.6050395965576,3134.465217590332,1738968989.648814,1738968992.7832792
+Azure,westus,How do you handle cash management and security procedures?,100.67009925842285,203.33099365234375,1738969012.794657,1738969012.997988
+Deepgram,global,How do you handle cash management and security procedures?,208.8010311126709,208.87017250061035,1738969012.999292,1738969013.208162
+OpenAI,global,How do you handle cash management and security procedures?,986.8741035461426,2259.1822147369385,1738969013.209056,1738969015.468238
+Azure,westus,Describe your experience with containerization and Docker.,140.90800285339355,203.78684997558594,1738969035.476864,1738969035.680651
+Deepgram,global,Describe your experience with containerization and Docker.,400.9261131286621,400.99382400512695,1738969035.681797,1738969036.0827909
+OpenAI,global,Describe your experience with containerization and Docker.,716.5718078613281,1598.1590747833252,1738969036.083553,1738969037.6817122
+Azure,westus,Describe your experience with A/B testing.,383.33582878112793,407.5009822845459,1738969057.691006,1738969058.098507
+Deepgram,global,Describe your experience with A/B testing.,222.3491668701172,222.40900993347168,1738969058.099038,1738969058.321447
+OpenAI,global,Describe your experience with A/B testing.,944.6218013763428,1917.1838760375977,1738969058.3223941,1738969060.239578
+Azure,westus,What's your experience with performance optimization?,2231.5759658813477,2246.580123901367,1738969080.252239,1738969082.498819
+Deepgram,global,What's your experience with performance optimization?,424.4349002838135,424.5009422302246,1738969082.499524,1738969082.924025
+OpenAI,global,What's your experience with performance optimization?,1576.509952545166,2428.09796333313,1738969082.925034,1738969085.353132
+Azure,westus,Describe your experience with RESTful APIs and microservices.,136.1978054046631,204.2078971862793,1738969105.3644931,1738969105.568701
+Deepgram,global,Describe your experience with RESTful APIs and microservices.,432.6961040496826,432.8131675720215,1738969105.570036,1738969106.002849
+OpenAI,global,Describe your experience with RESTful APIs and microservices.,1744.0791130065918,4657.250165939331,1738969106.0038369,1738969110.661087
+Azure,westus,How do you handle seasonal hiring and training?,1928.7080764770508,2031.1799049377441,1738969130.671199,1738969132.702379
+Deepgram,global,How do you handle seasonal hiring and training?,216.84694290161133,216.904878616333,1738969132.703854,1738969132.920759
+OpenAI,global,How do you handle seasonal hiring and training?,1071.549892425537,3690.025806427002,1738969132.921621,1738969136.611647
+Azure,westus,Tell me about a time you improved system reliability.,101.76897048950195,111.65904998779297,1738969156.620298,1738969156.731957
+Deepgram,global,Tell me about a time you improved system reliability.,432.6362609863281,432.70230293273926,1738969156.7324429,1738969157.1651452
+OpenAI,global,Tell me about a time you improved system reliability.,1378.7891864776611,2616.464138031006,1738969157.165938,1738969159.782402
+Azure,westus,What's your approach to code review and collaboration?,101.52864456176758,204.28180694580078,1738969179.7911592,1738969179.995441
+Deepgram,global,What's your approach to code review and collaboration?,441.1630630493164,441.2369728088379,1738969179.9967308,1738969180.4379678
+OpenAI,global,What's your approach to code review and collaboration?,1121.6540336608887,1948.577880859375,1738969180.438844,1738969182.3874218
+Azure,westus,Describe your experience with database design and optimization? What's your approach to performance tuning?,4372.853994369507,4484.08579826355,1738969202.39573,1738969206.8798158
+Deepgram,global,Describe your experience with database design and optimization? What's your approach to performance tuning?,255.47194480895996,255.6767463684082,1738969206.880351,1738969207.1360278
+OpenAI,global,Describe your experience with database design and optimization? What's your approach to performance tuning?,891.5450572967529,9674.230098724365,1738969207.137316,1738969216.811546
+Azure,westus,How would you handle a situation where a customer demands a refund against store policy? What steps would you take to de-escalate the situation!,876.2407302856445,876.7578601837158,1738969236.8224761,1738969237.699234
+Deepgram,global,How would you handle a situation where a customer demands a refund against store policy? What steps would you take to de-escalate the situation!,282.4859619140625,282.58204460144043,1738969237.699723,1738969237.982305
+OpenAI,global,How would you handle a situation where a customer demands a refund against store policy? What steps would you take to de-escalate the situation!,1592.8142070770264,8465.967178344727,1738969237.983049,1738969246.449016
+Azure,westus,What's your approach to training new team members?,712.21923828125,813.8511180877686,1738969266.4611578,1738969267.275009
+Deepgram,global,What's your approach to training new team members?,419.874906539917,419.9368953704834,1738969267.276263,1738969267.6962
+OpenAI,global,What's your approach to training new team members?,706.6891193389893,1401.576042175293,1738969267.696961,1738969269.098537
+Azure,westus,What's your approach to database indexing and optimization?,165.8499240875244,202.62598991394043,1738969289.10606,1738969289.308686
+Deepgram,global,What's your approach to database indexing and optimization?,242.86699295043945,242.95878410339355,1738969289.3094552,1738969289.552414
+OpenAI,global,What's your approach to database indexing and optimization?,967.2150611877441,2193.7551498413086,1738969289.55351,1738969291.747265
+Azure,westus,Describe a situation where you had to implement a major system change.,103.99627685546875,127.8390884399414,1738969311.76292,1738969311.890759
+Deepgram,global,Describe a situation where you had to implement a major system change.,491.55402183532715,491.64295196533203,1738969311.891468,1738969312.383111
+OpenAI,global,Describe a situation where you had to implement a major system change.,682.6047897338867,1581.4836025238037,1738969312.3839512,1738969313.9654348
+Azure,westus,Tell me about a time you resolved a critical bug under pressure!,101.67503356933594,204.4999599456787,1738969333.983315,1738969334.187815
+Deepgram,global,Tell me about a time you resolved a critical bug under pressure!,476.02009773254395,476.093053817749,1738969334.189018,1738969334.665111
+OpenAI,global,Tell me about a time you resolved a critical bug under pressure!,996.5250492095947,2437.2811317443848,1738969334.666431,1738969337.103712
+Azure,westus,How do you handle cross-browser compatibility issues?,130.36179542541504,130.77783584594727,1738969357.112302,1738969357.24308
+Deepgram,global,How do you handle cross-browser compatibility issues?,400.85816383361816,400.9230136871338,1738969357.243645,1738969357.644568
+OpenAI,global,How do you handle cross-browser compatibility issues?,828.8819789886475,1616.1510944366455,1738969357.645568,1738969359.261719
+Azure,westus,What's your approach to solving scalability issues in software?,160.82477569580078,203.07111740112305,1738969379.273432,1738969379.4765031
+Deepgram,global,What's your approach to solving scalability issues in software?,222.5332260131836,222.60713577270508,1738969379.477737,1738969379.700344
+OpenAI,global,What's your approach to solving scalability issues in software?,831.0940265655518,1842.137098312378,1738969379.7013109,1738969381.543448
+Azure,westus,What's your experience with unit testing and test-driven development?,122.75218963623047,205.13510704040527,1738969401.5535748,1738969401.75871
+Deepgram,global,What's your experience with unit testing and test-driven development?,248.01301956176758,248.11625480651855,1738969401.7603688,1738969402.008485
+OpenAI,global,What's your experience with unit testing and test-driven development?,985.1992130279541,2185.7552528381348,1738969402.0099788,1738969404.195734
+Azure,westus,What's your experience with memory management?,1627.3038387298584,1659.2707633972168,1738969424.214251,1738969425.8735218
+Deepgram,global,What's your experience with memory management?,424.24798011779785,424.30782318115234,1738969425.874273,1738969426.298581
+OpenAI,global,What's your experience with memory management?,673.4240055084229,1493.0791854858398,1738969426.299618,1738969427.7926972
+Azure,westus,Describe your approach to code optimization.,142.34495162963867,142.79890060424805,1738969447.804291,1738969447.94709
+Deepgram,global,Describe your approach to code optimization.,404.48522567749023,404.54602241516113,1738969447.9477398,1738969448.3522859
+OpenAI,global,Describe your approach to code optimization.,3845.6900119781494,5277.065992355347,1738969448.353364,1738969453.63043
+Azure,westus,What's your approach to optimizing website performance?,122.1780776977539,203.56202125549316,1738969473.6403651,1738969473.8439271
+Deepgram,global,What's your approach to optimizing website performance?,255.46598434448242,255.59592247009277,1738969473.845063,1738969474.100659
+OpenAI,global,What's your approach to optimizing website performance?,1550.7347583770752,2657.130002975464,1738969474.1016371,1738969476.7587671
+Azure,westus,What's your approach to training new team members?,549.490213394165,609.9331378936768,1738969496.7689779,1738969497.378911
+Deepgram,global,What's your approach to training new team members?,203.0050754547119,203.0651569366455,1738969497.380241,1738969497.583306
+OpenAI,global,What's your approach to training new team members?,1199.1119384765625,1779.2670726776123,1738969497.584116,1738969499.363383
+Azure,westus,Describe a challenging coding problem you solved recently! What was your problem-solving approach?,204.05101776123047,252.22206115722656,1738969519.375372,1738969519.627594
+Deepgram,global,Describe a challenging coding problem you solved recently! What was your problem-solving approach?,502.09999084472656,502.1970272064209,1738969519.6281269,1738969520.130324
+OpenAI,global,Describe a challenging coding problem you solved recently! What was your problem-solving approach?,674.2990016937256,3721.7438220977783,1738969520.131372,1738969523.8531158
+Azure,westus,"What's your experience with cloud platforms like AWS or Azure, and which services do you use most frequently?",149.50013160705566,150.1319408416748,1738969543.864883,1738969544.015015
+Deepgram,global,"What's your experience with cloud platforms like AWS or Azure, and which services do you use most frequently?",512.7089023590088,512.8560066223145,1738969544.015522,1738969544.528378
+OpenAI,global,"What's your experience with cloud platforms like AWS or Azure, and which services do you use most frequently?",1973.1230735778809,4024.083375930786,1738969544.5292218,1738969548.5533051
+Azure,westus,"How do you stay organized during busy retail seasons, especially holidays! What time management techniques work best for you?",187.14189529418945,203.58586311340332,1738969568.5672672,1738969568.770853
+Deepgram,global,"How do you stay organized during busy retail seasons, especially holidays! What time management techniques work best for you?",504.87279891967773,505.0339698791504,1738969568.7715871,1738969569.276621
+OpenAI,global,"How do you stay organized during busy retail seasons, especially holidays! What time management techniques work best for you?",889.0130519866943,2828.9709091186523,1738969569.277524,1738969572.106495
+Azure,westus,What strategies do you use for inventory forecasting?,134.37318801879883,134.77206230163574,1738969592.116565,1738969592.251337
+Deepgram,global,What strategies do you use for inventory forecasting?,227.40507125854492,227.47111320495605,1738969592.251922,1738969592.479393
+OpenAI,global,What strategies do you use for inventory forecasting?,623.3680248260498,1155.9171676635742,1738969592.480202,1738969593.6361191
+Azure,westus,Describe your experience with database design and optimization? What's your approach to performance tuning?,165.62509536743164,204.9851417541504,1738969613.645825,1738969613.85081
+Deepgram,global,Describe your experience with database design and optimization? What's your approach to performance tuning?,221.10700607299805,221.22907638549805,1738969613.8518689,1738969614.073098
+OpenAI,global,Describe your experience with database design and optimization? What's your approach to performance tuning?,1618.6461448669434,8664.326190948486,1738969614.073983,1738969622.7383091
+Azure,westus,How do you ensure backward compatibility in your code?,152.32515335083008,152.79722213745117,1738969642.747238,1738969642.9000351
+Deepgram,global,How do you ensure backward compatibility in your code?,236.04202270507812,236.10806465148926,1738969642.900768,1738969643.136876
+OpenAI,global,How do you ensure backward compatibility in your code?,1947.6699829101562,2907.928943634033,1738969643.137726,1738969646.045655
+Azure,westus,"What's your approach to debugging complex software issues, and what debugging tools do you prefer?",145.60317993164062,146.2230682373047,1738969666.055337,1738969666.20156
+Deepgram,global,"What's your approach to debugging complex software issues, and what debugging tools do you prefer?",456.9220542907715,457.0198059082031,1738969666.202218,1738969666.6592379
+OpenAI,global,"What's your approach to debugging complex software issues, and what debugging tools do you prefer?",1439.2170906066895,3154.477834701538,1738969666.660079,1738969669.8145568
+Azure,westus,Describe a situation where you had to implement a major system change.,101.97591781616211,129.78601455688477,1738969689.821284,1738969689.95107
+Deepgram,global,Describe a situation where you had to implement a major system change.,255.81097602844238,255.90205192565918,1738969689.951643,1738969690.207545
+OpenAI,global,Describe a situation where you had to implement a major system change.,1027.2331237792969,2497.9851245880127,1738969690.208361,1738969692.706346
+Azure,westus,Describe a situation where you had to handle a security breach.,135.02001762390137,202.73494720458984,1738969712.716332,1738969712.919067
+Deepgram,global,Describe a situation where you had to handle a security breach.,228.22928428649902,228.38497161865234,1738969712.919915,1738969713.1483
+OpenAI,global,Describe a situation where you had to handle a security breach.,760.746955871582,1620.4380989074707,1738969713.149038,1738969714.7694762
+Azure,westus,How do you handle customer feedback and suggestions?,639.4147872924805,707.4229717254639,1738969734.780313,1738969735.487736
+Deepgram,global,How do you handle customer feedback and suggestions?,229.14814949035645,229.18105125427246,1738969735.48851,1738969735.717691
+OpenAI,global,How do you handle customer feedback and suggestions?,2264.035224914551,3112.905979156494,1738969735.718387,1738969738.8312929
+Azure,westus,How do you handle customer loyalty programs?,3127.403974533081,3228.9202213287354,1738969758.840083,1738969762.069003
+Deepgram,global,How do you handle customer loyalty programs?,407.5961112976074,407.6361656188965,1738969762.070839,1738969762.478475
+OpenAI,global,How do you handle customer loyalty programs?,935.0807666778564,1452.4297714233398,1738969762.4801862,1738969763.932616
+Azure,westus,What strategies do you use for markdown management?,1875.1311302185059,1875.5483627319336,1738969783.9467578,1738969785.8223062
+Deepgram,global,What strategies do you use for markdown management?,206.496000289917,206.56633377075195,1738969785.8229508,1738969786.0295172
+OpenAI,global,What strategies do you use for markdown management?,1411.3659858703613,2876.0221004486084,1738969786.030304,1738969788.906326

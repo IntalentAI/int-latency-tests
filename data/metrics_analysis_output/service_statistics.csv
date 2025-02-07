@@ -1,0 +1,4 @@
+Service,Mean TTFB (ms),Median TTFB (ms),Std TTFB (ms),95th Percentile TTFB (ms),99th Percentile TTFB (ms),Mean E2E (ms),Median E2E (ms),Std E2E (ms),95th Percentile E2E (ms),99th Percentile E2E (ms),Processing Time (ms),Sample Size
+Azure,522.05,150.91,870.38,2524.59,3638.04,568.75,203.45,888.81,2563.45,3743.54,46.7,60
+Deepgram,352.81,398.58,115.65,511.32,529.02,352.9,398.65,115.65,511.38,529.16,0.09,60
+OpenAI,1152.73,976.21,575.29,1993.19,3294.63,2781.26,2437.28,1729.18,5597.2,9088.49,1636.01,60

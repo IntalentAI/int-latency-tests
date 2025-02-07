@@ -22,6 +22,11 @@ from openai import AsyncOpenAI
 import argparse
 import sys
 import random
+import tempfile
+import shutil
+import httpx
+import aiofiles
+import subprocess
 
 # Audio configuration constants
 AUDIO_SAMPLE_RATE = 16000  # Standard sample rate for all services
@@ -67,9 +72,11 @@ class FileBasedSentenceGenerator:
         
         logger.info(f"Selected question: {question}")
         return question
-
+ 
 @dataclass
 class SpeechMetricEntry:
+    service_name: str
+    region: str
     input_text: str
     ttfb_ms: float
     e2e_latency_ms: float
@@ -81,15 +88,23 @@ class AudioFrame:
     audio: bytes
     sample_rate: int
     num_channels: int = 1
-    
+
 class SpeechMetrics:
-    def __init__(self, service_name: str, region: str):
-        self.service_name = service_name
-        self.region = region
+    def __init__(self):
         self.metrics: List[SpeechMetricEntry] = []
     
-    def add_metric(self, entry: SpeechMetricEntry):
-        self.metrics.append(entry)
+    def add_metric(self, service_name: str, region: str, input_text: str, ttfb_ms: float, 
+                  e2e_latency_ms: Optional[float] = None, start_time: float = None, 
+                  end_time: Optional[float] = None):
+        self.metrics.append(SpeechMetricEntry(
+            service_name=service_name,
+            region=region,
+            input_text=input_text,
+            ttfb_ms=ttfb_ms,
+            e2e_latency_ms=e2e_latency_ms,
+            start_time=start_time,
+            end_time=end_time
+        ))
     
     def save_to_csv(self, filename: str):
         with open(filename, 'w', newline='') as f:
@@ -98,14 +113,24 @@ class SpeechMetrics:
                            'E2E Latency (ms)', 'Start Time', 'End Time'])
             for metric in self.metrics:
                 writer.writerow([
-                    self.service_name,
-                    self.region,
+                    metric.service_name,
+                    metric.region,
                     metric.input_text,
                     metric.ttfb_ms,
                     metric.e2e_latency_ms,
                     metric.start_time,
                     metric.end_time
                 ])
+
+# Create global metrics collector
+speech_metrics = SpeechMetrics()
+
+def flush_metrics_to_disk():
+    """Save current metrics to CSV file."""
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    if not os.path.exists('data'):
+        os.makedirs('data')
+    speech_metrics.save_to_csv(f'data/run_metrics_{timestamp}.csv')
 
 class AzureSpeechSynthesizer:
     def __init__(
@@ -120,7 +145,6 @@ class AzureSpeechSynthesizer:
         self.region = region
         self.voice_id = voice
         self.sample_rate = sample_rate
-        self.metrics = SpeechMetrics("Azure", region)
         
         # Default settings
         self.settings = {
@@ -220,7 +244,7 @@ class AzureSpeechSynthesizer:
     def _handle_synthesizing(self, evt):
         """Handle audio chunks as they arrive."""
         if evt.result and evt.result.audio_data:
-            logger.debug(f"Received audio chunk: {len(evt.result.audio_data)} bytes")
+            logger.trace(f"Received audio chunk: {len(evt.result.audio_data)} bytes")
             try:
                 self.audio_queue.put_nowait(evt.result.audio_data)
             except asyncio.QueueFull:
@@ -228,7 +252,7 @@ class AzureSpeechSynthesizer:
 
     def _handle_completed(self, evt):
         """Handle synthesis completion."""
-        logger.info("Speech synthesis completed")
+        logger.debug("Speech synthesis completed")
         try:
             self.audio_queue.put_nowait(None)  # Signal completion
         except asyncio.QueueFull:
@@ -251,89 +275,123 @@ class AzureSpeechSynthesizer:
 
             start_time = time.time()
             ttfb_recorded = False
-            logger.info(f"Starting synthesis for text: {text}")
-
-            # Start synthesis with SSML
-            ssml = self._construct_ssml(text)
-            logger.debug(f"Generated SSML: {ssml}")
             
-            # Create synthesis result
-            result = await asyncio.to_thread(
-                lambda: self.speech_synthesizer.speak_ssml_async(ssml).get()
+            # Use a bounded queue to prevent memory issues
+            self.audio_queue = asyncio.Queue(maxsize=100)
+            
+            # Create synthesis result - run in threadpool to avoid blocking
+            result_future = asyncio.create_task(
+                asyncio.to_thread(
+                    self.speech_synthesizer.speak_ssml_async(self._construct_ssml(text)).get
+                )
             )
+
+            # Create a task for queue monitoring
+            queue_monitor = asyncio.create_task(self._monitor_queue())
             
-            if result.reason == speechsdk.ResultReason.Canceled:
-                cancellation_details = speechsdk.CancellationDetails(result)
-                logger.error(f"Speech synthesis canceled: {cancellation_details.reason}")
-                logger.error(f"Error details: {cancellation_details.error_details}")
-                raise Exception(f"Speech synthesis canceled: {cancellation_details.error_details}")
+            try:
+                while True:
+                    try:
+                        chunk = await asyncio.wait_for(self.audio_queue.get(), timeout=1.0)
+                        
+                        if chunk is None:  # End of stream
+                            break
 
-            # Stream audio chunks as they arrive
-            timeout = 30  # 30 seconds timeout
-            while True:
+                        if not ttfb_recorded:
+                            ttfb_time = (time.time() - start_time) * 1000
+                            speech_metrics.add_metric(
+                                service_name="Azure",
+                                region=self.region,
+                                input_text=text,
+                                ttfb_ms=ttfb_time,
+                                start_time=start_time
+                            )
+                            ttfb_recorded = True
+
+                        yield AudioFrame(audio=chunk, sample_rate=self.sample_rate)
+                        self.audio_queue.task_done()
+
+                    except asyncio.TimeoutError:
+                        if result_future.done():
+                            # Synthesis is complete but no more data
+                            break
+                        # Otherwise continue waiting
+                        continue
+
+            finally:
+                # Clean up tasks
+                queue_monitor.cancel()
                 try:
-                    chunk = await asyncio.wait_for(self.audio_queue.get(), timeout)
-                    if chunk is None:  # End of stream
-                        logger.info("Received end of stream signal")
-                        break
-
-                    if not ttfb_recorded:
-                        ttfb_time = (time.time() - start_time) * 1000
-                        logger.info(f"First chunk received. TTFB: {ttfb_time:.2f}ms")
-                        self.metrics.add_metric(SpeechMetricEntry(
-                            input_text=text,
-                            ttfb_ms=ttfb_time,
-                            e2e_latency_ms=None,
-                            start_time=start_time,
-                            end_time=None
-                        ))
-                        ttfb_recorded = True
-
-                    yield AudioFrame(
-                        audio=chunk,
-                        sample_rate=self.sample_rate
-                    )
-                except asyncio.TimeoutError:
-                    logger.error("Timeout waiting for audio chunks")
-                    break
+                    await queue_monitor
+                except asyncio.CancelledError:
+                    pass
+                
+                if not result_future.done():
+                    result_future.cancel()
+                    try:
+                        await result_future
+                    except asyncio.CancelledError:
+                        pass
 
             # Update final metrics
             end_time = time.time()
-            if len(self.metrics.metrics) > 0:
-                last_metric = self.metrics.metrics[-1]
-                last_metric.e2e_latency_ms = (end_time - start_time) * 1000
-                last_metric.end_time = end_time
-                logger.info(f"Synthesis completed. E2E latency: {last_metric.e2e_latency_ms:.2f}ms")
+            for metric in speech_metrics.metrics:
+                if (metric.service_name == "Azure" and 
+                    metric.input_text == text and 
+                    metric.e2e_latency_ms is None):
+                    metric.e2e_latency_ms = (end_time - start_time) * 1000
+                    metric.end_time = end_time
+                    break
 
         except Exception as e:
             logger.error(f"Azure synthesis failed: {str(e)}", exc_info=True)
             raise
-        finally:
-            # Clear the queue
-            while not self.audio_queue.empty():
-                try:
-                    self.audio_queue.get_nowait()
-                except asyncio.QueueEmpty:
-                    break
 
-    async def synthesize_speech(self, text: str, output_file: str) -> bool:
+    async def _monitor_queue(self):
+        """Monitor queue health and log issues."""
+        while True:
+            await asyncio.sleep(0.1)  # Check every 100ms
+            qsize = self.audio_queue.qsize()
+            if qsize > 80:  # 80% full
+                logger.warning(f"Audio queue is {qsize}% full")
+
+    async def synthesize_speech(self, text: str, output_file: str, save_audio: bool = True) -> bool:
         """Generate speech and save to file."""
         try:
             logger.info(f"Starting speech synthesis to file: {output_file}")
             audio_data = bytearray()
             
-            async for frame in self.synthesize_speech_stream(text):
-                logger.info(f"Received frame: {len(frame.audio)} bytes")
-                audio_data.extend(frame.audio)
+            # Create a separate task for stream processing
+            async def process_stream():
+                async for frame in self.synthesize_speech_stream(text):
+                    audio_data.extend(frame.audio)
             
-            with wave.open(output_file, 'wb') as wav_file:
-                logger.info(f"Writing audio data to {output_file}")
-                wav_file.setnchannels(AUDIO_CHANNELS)
-                wav_file.setsampwidth(AUDIO_SAMPLE_WIDTH)
-                wav_file.setframerate(self.sample_rate)
-                wav_file.writeframes(audio_data)
+            # Run stream processing with increased timeout
+            try:
+                await asyncio.wait_for(process_stream(), timeout=15.0)  # Increased from 5.0 to 15.0
+            except asyncio.TimeoutError:
+                logger.error(f"Timeout processing audio stream for text: {text[:50]}...")
+                return False
+            except Exception as e:
+                logger.error(f"Error processing audio stream: {str(e)}")
+                return False
             
-            logger.info(f"Successfully saved audio to {output_file}")
+            if not audio_data:
+                logger.error("No audio data received from synthesis stream")
+                return False
+            
+            # Write WAV file in a thread pool to avoid blocking
+            if save_audio:
+                def write_wav():
+                    with wave.open(output_file, 'wb') as wav_file:
+                        wav_file.setnchannels(AUDIO_CHANNELS)
+                        wav_file.setsampwidth(AUDIO_SAMPLE_WIDTH)
+                        wav_file.setframerate(self.sample_rate)
+                        wav_file.writeframes(audio_data)
+                
+                await asyncio.to_thread(write_wav)
+                logger.info(f"Successfully saved audio to {output_file}")
+            
             return True
             
         except Exception as e:
@@ -355,7 +413,6 @@ class DeepgramSpeechSynthesizer:
         self.voice = voice
         self.sample_rate = sample_rate
         self.client = DeepgramClient(api_key=api_key)
-        self.metrics = SpeechMetrics("Deepgram", "global")
 
     async def synthesize_speech_stream(self, text: str) -> AsyncGenerator[AudioFrame, None]:
         try:
@@ -395,13 +452,13 @@ class DeepgramSpeechSynthesizer:
 
                 if first_chunk and not ttfb_recorded:
                     ttfb_time = (time.time() - start_time) * 1000
-                    self.metrics.add_metric(SpeechMetricEntry(
+                    speech_metrics.add_metric(
+                        service_name="Deepgram",
+                        region="global",
                         input_text=text,
                         ttfb_ms=ttfb_time,
-                        e2e_latency_ms=None,
-                        start_time=start_time,
-                        end_time=None
-                    ))
+                        start_time=start_time
+                    )
                     ttfb_recorded = True
                     first_chunk = False
 
@@ -412,13 +469,16 @@ class DeepgramSpeechSynthesizer:
 
             # Update final metrics
             end_time = time.time()
-            if len(self.metrics.metrics) > 0:
-                last_metric = self.metrics.metrics[-1]
-                last_metric.e2e_latency_ms = (end_time - start_time) * 1000
-                last_metric.end_time = end_time
+            for metric in speech_metrics.metrics:
+                if (metric.service_name == "Deepgram" and 
+                    metric.input_text == text and 
+                    metric.e2e_latency_ms is None):
+                    metric.e2e_latency_ms = (end_time - start_time) * 1000
+                    metric.end_time = end_time
+                    break
 
         except Exception as e:
-            print(f"Deepgram synthesis failed: {str(e)}")
+            logger.error(f"Deepgram synthesis failed: {str(e)}")
             raise
 
     async def synthesize_speech(self, text: str, output_file: str) -> bool:
@@ -439,7 +499,7 @@ class DeepgramSpeechSynthesizer:
             return True
             
         except Exception as e:
-            print(f"Failed to save audio: {str(e)}")
+            logger.error(f"Failed to save audio: {str(e)}")
             return False
 
 class OpenAISpeechSynthesizer:
@@ -449,28 +509,108 @@ class OpenAISpeechSynthesizer:
         self,
         api_key: str,
         voice: str = OPENAI_DEFAULT_VOICE,
-        model: Literal["tts-1", "tts-1-hd"] = "tts-1-hd",
-        sample_rate: int = OPENAI_SAMPLE_RATE,  # Changed default to use OpenAI's native rate
+        model: Literal["tts-1", "tts-1-hd"] = "tts-1",  # Using faster model
+        sample_rate: int = OPENAI_SAMPLE_RATE,
     ):
         self.api_key = api_key
         self.voice_id = voice
         self.model = model
-        self.sample_rate = OPENAI_SAMPLE_RATE  # Always use OpenAI's native rate
-        self.client = AsyncOpenAI(api_key=api_key)
-        self.metrics = SpeechMetrics("OpenAI", "global")
+        self.sample_rate = OPENAI_SAMPLE_RATE
+        self.client = AsyncOpenAI(
+            api_key=api_key,
+            timeout=10.0,
+            max_retries=2,
+            http_client=httpx.AsyncClient(
+                timeout=httpx.Timeout(
+                    connect=2.0,    # Connection timeout
+                    read=8.0,       # Read timeout
+                    write=2.0,      # Write timeout
+                    pool=None       # No pool timeout needed
+                ),
+                limits=httpx.Limits(
+                    max_keepalive_connections=5,
+                    max_connections=10
+                ),
+                trust_env=False
+            )
+        )
+
+    async def synthesize_speech(self, text: str, output_file: str, save_audio: bool = True) -> bool:
+        """Generate speech and save to file using streaming."""
+        try:
+            logger.info(f"Starting OpenAI streaming synthesis: {text[:50]}...")
+            start_time = time.time()
+            audio_buffer = bytearray()
+            ttfb_recorded = False
+            
+            # Use streaming response with PCM format
+            async with self.client.audio.speech.with_streaming_response.create(
+                input=text,
+                model=self.model,
+                voice=self.voice_id,
+                response_format="pcm",
+                speed=1.1,  # Slightly faster synthesis
+            ) as response:
+                # Process chunks as they arrive
+                async for chunk in response.iter_bytes(chunk_size=4096):  # Smaller chunks for faster TTFB
+                    if not ttfb_recorded:
+                        ttfb_time = (time.time() - start_time) * 1000
+                        logger.info(f"OpenAI streaming first chunk. TTFB: {ttfb_time:.2f}ms")
+                        speech_metrics.add_metric(
+                            service_name="OpenAI",
+                            region="global",
+                            input_text=text,
+                            ttfb_ms=ttfb_time,
+                            start_time=start_time
+                        )
+                        ttfb_recorded = True
+                    
+                    audio_buffer.extend(chunk)
+                    # Could add real-time processing here if needed
+
+            # Record streaming completion time before file operations
+            streaming_end_time = time.time()
+            streaming_latency = (streaming_end_time - start_time) * 1000
+            logger.info(f"OpenAI streaming completed. Latency: {streaming_latency:.2f}ms")
+
+            if save_audio:
+                with wave.open(output_file, 'wb') as wav_file:
+                    wav_file.setnchannels(AUDIO_CHANNELS)
+                    wav_file.setsampwidth(AUDIO_SAMPLE_WIDTH)
+                    wav_file.setframerate(self.sample_rate)
+                    wav_file.writeframes(audio_buffer)
+
+            # Update metrics
+            for metric in speech_metrics.metrics:
+                if (metric.service_name == "OpenAI" and 
+                    metric.input_text == text and 
+                    metric.e2e_latency_ms is None):
+                    metric.e2e_latency_ms = streaming_latency
+                    metric.end_time = streaming_end_time
+                    break
+
+            logger.info(f"Successfully saved OpenAI audio to {output_file}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to save OpenAI audio: {str(e)}", exc_info=True)
+            return False
 
     async def synthesize_speech_stream(self, text: str) -> AsyncGenerator[AudioFrame, None]:
         """Generate speech audio stream from text."""
         try:
             start_time = time.time()
             ttfb_recorded = False
-            logger.info(f"Starting OpenAI synthesis for text: {text}")
-
-            response = await self.client.audio.speech.create(
-                input=text or " ",  # Text must contain at least one character
-                model=self.model,
-                voice=self.voice_id,
-                response_format="pcm",
+            
+            # Create speech request with timeout
+            response = await asyncio.wait_for(
+                self.client.audio.speech.create(
+                    input=text,
+                    model=self.model,
+                    voice=self.voice_id,
+                    response_format="pcm",
+                ),
+                timeout=5.0
             )
             
             # Get response content as bytes
@@ -478,67 +618,41 @@ class OpenAISpeechSynthesizer:
             
             if not ttfb_recorded:
                 ttfb_time = (time.time() - start_time) * 1000
-                logger.info(f"First chunk received. TTFB: {ttfb_time:.2f}ms")
-                self.metrics.add_metric(SpeechMetricEntry(
+                logger.debug(f"OpenAI first chunk received. TTFB: {ttfb_time:.2f}ms")
+                speech_metrics.add_metric(
+                    service_name="OpenAI",
+                    region="global",
                     input_text=text,
                     ttfb_ms=ttfb_time,
-                    e2e_latency_ms=None,
-                    start_time=start_time,
-                    end_time=None
-                ))
+                    start_time=start_time
+                )
                 ttfb_recorded = True
 
-            # Yield audio data in chunks
+            # Yield audio data in chunks using a thread pool
             chunk_size = 8192
             for i in range(0, len(audio_data), chunk_size):
                 chunk = audio_data[i:i + chunk_size]
-                yield AudioFrame(
-                    audio=chunk,
-                    sample_rate=self.sample_rate
-                )
+                yield AudioFrame(audio=chunk, sample_rate=self.sample_rate)
 
             # Update final metrics
             end_time = time.time()
-            if len(self.metrics.metrics) > 0:
-                last_metric = self.metrics.metrics[-1]
-                last_metric.e2e_latency_ms = (end_time - start_time) * 1000
-                last_metric.end_time = end_time
-                logger.info(f"Synthesis completed. E2E latency: {last_metric.e2e_latency_ms:.2f}ms")
+            e2e_latency = (end_time - start_time) * 1000
+            logger.info(f"OpenAI synthesis completed. E2E latency: {e2e_latency:.2f}ms")
+            
+            for metric in speech_metrics.metrics:
+                if (metric.service_name == "OpenAI" and 
+                    metric.input_text == text and 
+                    metric.e2e_latency_ms is None):
+                    metric.e2e_latency_ms = e2e_latency
+                    metric.end_time = end_time
+                    break
 
+        except asyncio.TimeoutError:
+            logger.error("OpenAI synthesis timed out")
+            raise
         except Exception as e:
             logger.error(f"OpenAI synthesis failed: {str(e)}", exc_info=True)
             raise
-
-    async def synthesize_speech(self, text: str, output_file: str) -> bool:
-        """Generate speech and save to file."""
-        try:
-            logger.info(f"Starting OpenAI speech synthesis to file: {output_file}")
-            audio_data = bytearray()
-            chunks_received = 0
-            
-            async for frame in self.synthesize_speech_stream(text):
-                chunks_received += 1
-                logger.debug(f"Received frame {chunks_received}: {len(frame.audio)} bytes")
-                audio_data.extend(frame.audio)
-            
-            if not audio_data:
-                logger.error("No audio data received from synthesis stream")
-                return False
-                
-            logger.info(f"Writing {len(audio_data)} bytes to WAV file")
-            with wave.open(output_file, 'wb') as wav_file:
-                wav_file.setnchannels(AUDIO_CHANNELS)
-                wav_file.setsampwidth(AUDIO_SAMPLE_WIDTH)
-                wav_file.setframerate(self.sample_rate)
-                wav_file.writeframes(audio_data)
-            
-            logger.info(f"Successfully saved OpenAI audio to {output_file}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to save OpenAI audio: {str(e)}", exc_info=True)
-            logger.exception("Full traceback:")
-            return False
 
 def upload_to_azure_storage(local_zip_path: str, connection_string: str, container_name: str):
     """Upload a file to Azure Blob Storage"""
@@ -550,15 +664,15 @@ def upload_to_azure_storage(local_zip_path: str, connection_string: str, contain
         if not container_client.exists():
             container_client.create_container()
         
-        blob_name = os.path.basename(local_zip_path)
+        blob_name = f"{os.uname().nodename}_{os.path.basename(local_zip_path)}"
         blob_client = container_client.get_blob_client(blob_name)
         
         with open(local_zip_path, "rb") as data:
             blob_client.upload_blob(data, overwrite=True)
-        print(f"Successfully uploaded {blob_name} to Azure Storage")
+        logger.info(f"Successfully uploaded {blob_name} to Azure Storage")
         return True
     except Exception as e:
-        print(f"Failed to upload to Azure Storage: {str(e)}")
+        logger.info(f"Failed to upload to Azure Storage: {str(e)}")
         return False
 
 async def run_speech_test(
@@ -574,211 +688,110 @@ async def run_speech_test(
     logger.info(f"Starting speech test with {num_iterations} iterations")
     generator = FileBasedSentenceGenerator()
     logger.info("FileBasedSentenceGenerator created")
-    azure_synthesizer = AzureSpeechSynthesizer(
-        azure_key, 
-        azure_region,
-        sample_rate=AUDIO_SAMPLE_RATE
-    )
-    deepgram_synthesizer = DeepgramSpeechSynthesizer(
-        deepgram_key,
-        sample_rate=AUDIO_SAMPLE_RATE
-    )
-    openai_synthesizer = OpenAISpeechSynthesizer(
-        openai_key,
-        sample_rate=AUDIO_SAMPLE_RATE
-    )
     
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    logger.info(f"Starting speech test at {timestamp}")
+    # Initialize services based on environment variables
+    run_azure = os.getenv('RUN_AZURE_TTS', 'false').lower() == 'true'
+    run_deepgram = os.getenv('RUN_DEEPGRAM_TTS', 'false').lower() == 'true'
+    run_openai = os.getenv('RUN_OPENAI_TTS', 'false').lower() == 'true'
     
-    # Create data directory if it doesn't exist
-    data_dir = os.path.join(os.path.dirname(__file__), 'data')
-    os.makedirs(data_dir, exist_ok=True)
-    openai_audio_data = None  # Initialize variable
-    deepgram_audio_data = None  # Initialize variable
-    azure_audio_data = None  # Initialize variable
-
-    metrics_file = os.path.join(data_dir, f"speech_metrics_{timestamp}.csv")
+    logger.info(f"Services enabled - Azure: {run_azure}, Deepgram: {run_deepgram}, OpenAI: {run_openai}")
     
-    # Write CSV header
-    with open(metrics_file, 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(['Service', 'Region', 'Input Text', 'TTFB (ms)', 
-                        'E2E Latency (ms)', 'Start Time', 'End Time'])
+    # Initialize only required services
+    azure_synthesizer = None
+    deepgram_synthesizer = None
+    openai_synthesizer = None
+    
+    if run_azure:
+        azure_synthesizer = AzureSpeechSynthesizer(
+            azure_key, 
+            azure_region,
+            sample_rate=AUDIO_SAMPLE_RATE
+        )
+        
+    if run_deepgram:
+        deepgram_synthesizer = DeepgramSpeechSynthesizer(
+            deepgram_key,
+            sample_rate=AUDIO_SAMPLE_RATE
+        )
+        
+    if run_openai:
+        openai_synthesizer = OpenAISpeechSynthesizer(
+            openai_key,
+            sample_rate=AUDIO_SAMPLE_RATE
+        )
 
-    def flush_metrics_to_disk():
-        """Write current metrics to CSV file"""
-        with open(metrics_file, 'a', newline='') as f:
-            writer = csv.writer(f)
-            # Write Azure metrics
-            for metric in azure_synthesizer.metrics.metrics:
-                writer.writerow([
-                    azure_synthesizer.metrics.service_name,
-                    azure_synthesizer.metrics.region,
-                    metric.input_text,
-                    metric.ttfb_ms,
-                    metric.e2e_latency_ms,
-                    metric.start_time,
-                    metric.end_time
-                ])
-            # Write Deepgram metrics
-            for metric in deepgram_synthesizer.metrics.metrics:
-                writer.writerow([
-                    deepgram_synthesizer.metrics.service_name,
-                    deepgram_synthesizer.metrics.region,
-                    metric.input_text,
-                    metric.ttfb_ms,
-                    metric.e2e_latency_ms,
-                    metric.start_time,
-                    metric.end_time
-                ])
-            # Write OpenAI metrics
-            for metric in openai_synthesizer.metrics.metrics:
-                writer.writerow([
-                    openai_synthesizer.metrics.service_name,
-                    openai_synthesizer.metrics.region,
-                    metric.input_text,
-                    metric.ttfb_ms,
-                    metric.e2e_latency_ms,
-                    metric.start_time,
-                    metric.end_time
-                ])
-        # Clear metrics after writing
-        azure_synthesizer.metrics.metrics.clear()
-        deepgram_synthesizer.metrics.metrics.clear()
-        openai_synthesizer.metrics.metrics.clear()
-        logger.info("Flushed metrics to disk")
+    # Create output directory if saving audio
+    output_dir = None
+    if save_audio:
+        output_dir = os.path.join('data', 'output', datetime.now().strftime('%Y%m%d_%H%M%S'))
+        os.makedirs(output_dir, exist_ok=True)
+        logger.info(f"Saving audio files to {output_dir}")
 
-    def save_audio_batch(batch_num):
-        """Save current audio data to files"""
-        if not save_audio:
-            logger.info("Skipping audio save as save_audio=False")
-            return []
-            
-        logger.info(f"Saving audio batch {batch_num}")
-        output_files = []
-        if openai_audio_data is not None:
-            openai_output = os.path.join(data_dir, f"openai_speech_{timestamp}_batch{batch_num}.wav")
-            with wave.open(openai_output, 'wb') as wav_file:
-                wav_file.setnchannels(AUDIO_CHANNELS)
-                wav_file.setsampwidth(AUDIO_SAMPLE_WIDTH)
-                wav_file.setframerate(OPENAI_SAMPLE_RATE)
-                wav_file.writeframes(openai_audio_data.tobytes())
-            output_files.append(openai_output)
-            logger.info(f"OpenAI audio batch {batch_num} saved")
-
-        if deepgram_audio_data is not None:
-            deepgram_output = os.path.join(data_dir, f"deepgram_speech_{timestamp}_batch{batch_num}.wav")
-            with wave.open(deepgram_output, 'wb') as wav_file:
-                wav_file.setnchannels(AUDIO_CHANNELS)
-                wav_file.setsampwidth(AUDIO_SAMPLE_WIDTH)
-                wav_file.setframerate(AUDIO_SAMPLE_RATE)
-                wav_file.writeframes(deepgram_audio_data.tobytes())
-            output_files.append(deepgram_output)
-            logger.info(f"Deepgram audio batch {batch_num} saved")
-
-        if azure_audio_data is not None:
-            azure_output = os.path.join(data_dir, f"azure_speech_{timestamp}_batch{batch_num}.wav")
-            with wave.open(azure_output, 'wb') as wav_file:
-                wav_file.setnchannels(AUDIO_CHANNELS)
-                wav_file.setsampwidth(AUDIO_SAMPLE_WIDTH)
-                wav_file.setframerate(AUDIO_SAMPLE_RATE)
-                wav_file.writeframes(azure_audio_data.tobytes())
-            output_files.append(azure_output)
-            logger.info(f"Azure audio batch {batch_num} saved")
-        return output_files
-
-    all_output_files = []
-    batch_size = 5
+    # Main test loop
     for i in range(num_iterations):
-        logger.info(f"Generating Sentence for Iteration {i+1}/{num_iterations}")
+        logger.info(f"Iteration {i+1}/{num_iterations}")
         sentence = generator.generate_sentence()
-        print(f"\nIteration {i+1}/{num_iterations}")
-        print(f"Text: {sentence}")
+        logger.info(f"Text: {sentence}")
         
-        if save_audio:
-            # OpenAI synthesis
-            openai_temp = os.path.join(data_dir, f"openai_temp_{i}.wav")
-            logger.info(f"Synthesizing OpenAI for {sentence}")
-            openai_success = await openai_synthesizer.synthesize_speech(sentence, openai_temp)
-            if openai_success:
-                with wave.open(openai_temp, 'rb') as wav_file:
-                    current_audio = np.frombuffer(wav_file.readframes(-1), dtype=np.int16)
-                    silence = np.zeros(24000, dtype=np.int16)
-                    openai_audio_data = current_audio if openai_audio_data is None else np.concatenate([openai_audio_data, silence, current_audio])
-                os.remove(openai_temp)
-                logger.info(f"OpenAI synthesis completed for {sentence}")
+        # Create temporary files for this iteration
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as azure_temp, \
+             tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as deepgram_temp, \
+             tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as openai_temp:
             
-            # Deepgram synthesis
-            deepgram_temp = os.path.join(data_dir, f"deepgram_temp_{i}.wav")
-            logger.info(f"Synthesizing deepgram for {sentence}")
-            deepgram_success = await deepgram_synthesizer.synthesize_speech(sentence, deepgram_temp)
-            if deepgram_success:
-                with wave.open(deepgram_temp, 'rb') as wav_file:
-                    current_audio = np.frombuffer(wav_file.readframes(-1), dtype=np.int16)
-                    silence = np.zeros(24000, dtype=np.int16)
-                    deepgram_audio_data = current_audio if deepgram_audio_data is None else np.concatenate([deepgram_audio_data, silence, current_audio])
-                os.remove(deepgram_temp)
-                logger.info(f"Deepgram synthesis completed for {sentence}")
+            azure_success = False
+            deepgram_success = False
+            openai_success = False
             
-            # Azure synthesis
-            azure_temp = os.path.join(data_dir, f"azure_temp_{i}.wav")
-            logger.info(f"Synthesizing azure for {sentence}")
-            azure_success = await azure_synthesizer.synthesize_speech(sentence, azure_temp)
-            if azure_success:
-                with wave.open(azure_temp, 'rb') as wav_file:
-                    current_audio = np.frombuffer(wav_file.readframes(-1), dtype=np.int16)
-                    silence = np.zeros(24000, dtype=np.int16)
-                    azure_audio_data = current_audio if azure_audio_data is None else np.concatenate([azure_audio_data, silence, current_audio])
-                os.remove(azure_temp)
-            logger.info(f"Azure synthesis completed for {sentence}")
-        else:
-            # Just synthesize without saving concatenated audio
-            openai_success = await openai_synthesizer.synthesize_speech(sentence, os.devnull)
-            deepgram_success = await deepgram_synthesizer.synthesize_speech(sentence, os.devnull)
-            azure_success = await azure_synthesizer.synthesize_speech(sentence, os.devnull)
-        
-        # Flush data every 5 iterations
-        if (i + 1) % batch_size == 0 or i == num_iterations - 1:
-            batch_num = (i + 1) // batch_size
-            logger.info(f"Saving batch {batch_num}")
-            flush_metrics_to_disk()
-            batch_files = save_audio_batch(batch_num)
-            all_output_files.extend(batch_files)
-            # Reset audio data
-            openai_audio_data = None
-            deepgram_audio_data = None
-            azure_audio_data = None
+            # Only run enabled services
+            if run_azure:
+                logger.info(f"Synthesizing Azure for {sentence}")
+                azure_success = await azure_synthesizer.synthesize_speech(sentence, azure_temp.name, save_audio)
+                
+            if run_deepgram:
+                logger.info(f"Synthesizing Deepgram for {sentence}")
+                deepgram_success = await deepgram_synthesizer.synthesize_speech(sentence, deepgram_temp.name)
+                
+            if run_openai:
+                logger.info(f"Synthesizing OpenAI for {sentence}")
+                openai_success = await openai_synthesizer.synthesize_speech(sentence, openai_temp.name, save_audio)
+            
+            # Copy files to output directory if save_audio is True
+            if save_audio and output_dir:
+                timestamp = datetime.now().strftime('%H%M%S')
+                if run_azure and azure_success:
+                    output_file = os.path.join(output_dir, f'azure_{i+1}_{timestamp}.wav')
+                    await asyncio.to_thread(shutil.copy2, azure_temp.name, output_file)
+                    logger.info(f"Saved Azure audio to {output_file}")
+                
+                if run_deepgram and deepgram_success:
+                    output_file = os.path.join(output_dir, f'deepgram_{i+1}_{timestamp}.wav')
+                    await asyncio.to_thread(shutil.copy2, deepgram_temp.name, output_file)
+                    logger.info(f"Saved Deepgram audio to {output_file}")
+                
+                if run_openai and openai_success:
+                    output_file = os.path.join(output_dir, f'openai_{i+1}_{timestamp}.wav')
+                    await asyncio.to_thread(shutil.copy2, openai_temp.name, output_file)
+                    logger.info(f"Saved OpenAI audio to {output_file}")
 
-        if i < num_iterations - 1:
-            logger.info(f"Waiting for {wait_time} seconds before next iteration")
-            time.sleep(wait_time)
-    
-    # Create final zip file with all batches
-    zip_filename = os.path.join(data_dir, f"speech_data_{timestamp}.zip")
-    with zipfile.ZipFile(zip_filename, 'w') as zipf:
-        for output_file in all_output_files:
-            zipf.write(output_file, os.path.basename(output_file))
-        zipf.write(metrics_file, os.path.basename(metrics_file))
-    logger.info(f"Created zip file: {zip_filename}")
-    
-    if os.getenv("UPLOAD_TO_AZURE_STORAGE") == "true":
-        # Upload and cleanup
-        connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-        container_name = os.getenv("AZURE_STORAGE_CONTAINER")
+            # Clean up temporary files if requested
+            if cleanup:
+                for temp_file in [azure_temp.name, deepgram_temp.name, openai_temp.name]:
+                    try:
+                        os.unlink(temp_file)
+                    except OSError:
+                        pass
         
-        if connection_string and container_name:
-            if upload_to_azure_storage(zip_filename, connection_string, container_name):
-                if cleanup:
-                    # Clean up local files after successful upload
-                    os.remove(zip_filename)
-                    for output_file in all_output_files:
-                        os.remove(output_file)
-                    os.remove(metrics_file)
-                    print("Local files cleaned up after upload")
-        else:
-            print("Azure Storage credentials not found in environment variables")
-            print(f"Files are saved locally in {data_dir}")
+        # Wait between iterations if specified
+        if wait_time > 0 and i < num_iterations - 1:
+            await asyncio.sleep(wait_time)
+        
+        # Flush metrics every 10 iterations
+        if (i + 1) % 10 == 0:
+            flush_metrics_to_disk()
+    
+    # Final metrics flush
+    flush_metrics_to_disk()
+    logger.info("Speech test completed")
 
 if __name__ == "__main__":
     # Parse command line arguments
@@ -795,7 +808,7 @@ if __name__ == "__main__":
 
     # Load environment variables from .env file
     logger.info("Loading environment variables")
-    print("Loading environment variables")
+    logger.info("Loading environment variables")
     env_path = os.path.join(os.path.dirname(__file__), '.env')
     load_dotenv(env_path)
     
@@ -805,9 +818,20 @@ if __name__ == "__main__":
     deepgram_api_key = os.getenv('DEEPGRAM_API_KEY')
     openai_api_key = os.getenv('OPENAI_API_KEY')
     
-    # Validate required variables
-    if not all([azure_speech_key, azure_speech_region, deepgram_api_key, openai_api_key]):
-        raise ValueError("Required API credentials not found in .env file")
+    # Only validate required variables based on enabled services
+    run_azure = os.getenv('RUN_AZURE_TTS', 'false').lower() == 'true'
+    run_deepgram = os.getenv('RUN_DEEPGRAM_TTS', 'false').lower() == 'true'
+    run_openai = os.getenv('RUN_OPENAI_TTS', 'false').lower() == 'true'
+    
+    if run_azure and not all([azure_speech_key, azure_speech_region]):
+        raise ValueError("Azure Speech credentials not found in .env file")
+    if run_deepgram and not deepgram_api_key:
+        raise ValueError("Deepgram API key not found in .env file")
+    if run_openai and not openai_api_key:
+        raise ValueError("OpenAI API key not found in .env file")
+    
+    if not any([run_azure, run_deepgram, run_openai]):
+        raise ValueError("No TTS services enabled. Set at least one of RUN_AZURE_TTS, RUN_DEEPGRAM_TTS, or RUN_OPENAI_TTS to true")
     
     logger.info(f"Starting speech test with {args.iterations} iterations and {args.wait_time}s wait time")
     
