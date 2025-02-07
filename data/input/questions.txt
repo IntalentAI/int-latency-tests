@@ -1,0 +1,104 @@
+What strategies do you use for upselling and cross-selling? How do you train others on these techniques.
+How do you maintain store standards during busy periods?
+Tell me about a time you resolved a critical bug under pressure!
+Tell me about a time you implemented a complex algorithm.
+Tell me about a time you improved code performance significantly.
+How do you maintain store cleanliness and safety standards?
+How do you handle customer privacy concerns?
+Tell me about your experience with continuous integration and deployment.
+What's your approach to training new team members?
+How do you handle concurrent user access in applications?
+What's your experience with cloud platforms like AWS or Azure, and which services do you use most frequently?
+How do you handle customer feedback and suggestions?
+Describe your approach to system monitoring and alerting.
+What's your experience with memory management?
+What's your experience with unit testing and test-driven development?
+How do you ensure excellent customer experience consistently?
+How do you handle cash management and security procedures?
+What's your experience with inventory audit procedures?
+How do you handle error logging and monitoring?
+Tell me about a time you improved system reliability.
+What strategies do you use for managing technical debt?
+How do you maintain work-life balance during busy retail seasons?
+What's your experience with performance optimization?
+How do you handle customer escalations effectively?
+Describe your experience with mobile app development.
+What's your experience with real-time data processing?
+How do you handle seasonal hiring and training?
+What strategies do you use for inventory forecasting?
+How do you handle multiple competing priorities in a retail environment, and what tools do you use to stay organized?
+Tell me about a time you had to refactor complex legacy code.
+Describe a situation where you had to implement a major system change.
+How do you handle customer complaints about pricing or promotions! How do you turn complaints into opportunities?
+Tell me about a successful project you led or contributed to significantly.
+How do you maintain customer loyalty and repeat business?
+How would you handle a situation with insufficient staff during peak hours! How would you prevent this in the future?
+How do you approach learning new programming languages or frameworks?
+Describe your experience with RESTful APIs and microservices.
+Tell me about a time you optimized a slow-performing query?
+What's your experience with message queuing systems?
+Describe your experience with automated testing frameworks.
+How do you handle cross-browser compatibility issues?
+How do you ensure code quality in your projects, and what code review practices do you follow!
+What strategies do you use for promotion planning?
+How do you handle store opening and closing procedures?
+How would you handle a situation where a customer demands a refund against store policy? What steps would you take to de-escalate the situation!
+What strategies do you use for database backup and recovery?
+What programming languages are you most comfortable with, and why do you prefer them? How do you keep your coding skills sharp?
+How do you ensure backward compatibility in your code?
+What's your approach to store layout optimization?
+What strategies do you use for code deployment?
+What's your approach to optimizing website performance?
+What's your experience with responsive web design?
+How do you ensure accessibility in your applications?
+What's your approach to writing clean, maintainable code? What design patterns do you frequently use.
+What's your approach to code review and collaboration?
+What's your experience with payment processing systems?
+What strategies do you use for handling peak traffic?
+How do you stay updated with retail industry trends, and how do you implement new trends in your work!
+What's your experience with data migration?
+How do you handle inventory management and stock control?
+Describe your approach to system architecture design.
+What strategies do you use for cache management?
+Tell me about a time you improved a store's operational efficiency? How did you measure the impact!
+Describe a situation where you had to meet tight deadlines?
+How do you handle security considerations in your code?
+How do you maintain a clean and organized store environment?
+How do you ensure consistent customer service standards?
+Describe your approach to documentation and knowledge sharing.
+How do you ensure data consistency in distributed systems?
+How do you handle difficult vendor relationships?
+How do you handle employee scheduling and coverage?
+Describe your experience with A/B testing.
+Describe your experience with containerization and Docker.
+How do you ensure secure authentication in your applications?
+How do you handle conflicts with coworkers in a professional setting! Can you provide a specific example?
+What's your approach to solving scalability issues in software?
+Describe a challenging coding problem you solved recently! What was your problem-solving approach?
+What strategies do you use for loss prevention?
+Describe your approach to API versioning.
+How do you handle customer loyalty programs?
+How do you handle customer service during high-stress periods?
+What strategies do you use for markdown management?
+How do you handle customer returns and exchanges?
+Tell me about your experience with CI/CD pipelines.
+Tell me about a time you implemented a new feature from scratch!
+Tell me about a time when you had to deal with a difficult customer? What was the outcome of that situation!
+What strategies do you use for sales forecasting?
+Tell me about a time you had to learn a new technology quickly? What was your learning strategy.
+Describe a situation where you had to handle a security breach.
+How do you handle emergency situations in the store?
+What's your approach to database indexing and optimization?
+What strategies do you use for visual merchandising?
+Describe your experience with database design and optimization? What's your approach to performance tuning?
+How do you deal with seasonal merchandise planning?
+How do you handle customer data privacy and security?
+What's your experience with front-end frameworks like React or Angular?
+Tell me about a time you had to debug a production issue!
+Can you explain your experience with agile development methodologies? How do you handle sprint planning.
+Describe your experience with version control systems, particularly Git! How do you handle merge conflicts?
+Describe your approach to code optimization.
+How do you stay organized during busy retail seasons, especially holidays! What time management techniques work best for you?
+What's your approach to debugging complex software issues, and what debugging tools do you prefer?
+Tell me about a time you improved team productivity.
+Tell me about a time you improved store metrics or KPIs.
