@@ -1,0 +1,4 @@
+github.com/Microsoft/cognitive-services-speech-sdk-go v1.33.0 h1:xPYSgs3nGr5J9ucPfzItDTj2jpQkz5OUPZM4z//8xUg=
+github.com/Microsoft/cognitive-services-speech-sdk-go v1.33.0/go.mod h1:ct4bG95K1Lu/c5y60PVGI1XOjo9aAcl80DD5dvu6zsg=
+github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
+github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=

@@ -654,6 +654,264 @@ class OpenAISpeechSynthesizer:
             logger.error(f"OpenAI synthesis failed: {str(e)}", exc_info=True)
             raise
 
+class AzureV2SpeechSynthesizer:
+    def __init__(
+        self,
+        api_key: str,
+        region: str,
+        voice: str = AZURE_DEFAULT_VOICE,
+        sample_rate: int = AUDIO_SAMPLE_RATE,
+        params: Optional[Dict[str, Any]] = None
+    ):
+        self.api_key = api_key
+        self.region = region
+        self.voice_id = voice
+        self.sample_rate = sample_rate
+        
+        # Default settings
+        self.settings = {
+            "language": "en-US",
+            "rate": "1.05",
+            "pitch": None,
+            "volume": None,
+            "style": None,
+            "style_degree": None,
+            "role": None,
+            "emphasis": None
+        }
+        if params:
+            self.settings.update(params)
+        
+        self.speech_config = None
+        self.speech_synthesizer = None
+        self.audio_queue = asyncio.Queue()
+        
+        logger.info(f"Initialized Azure V2 TTS with voice: {voice}, region: {region}")
+
+    def _construct_ssml(self, text: str) -> str:
+        """Construct SSML with voice and prosody settings."""
+        language = self.settings["language"]
+        ssml = (
+            f"<speak version='1.0' xml:lang='{language}' "
+            "xmlns='http://www.w3.org/2001/10/synthesis' "
+            "xmlns:mstts='http://www.w3.org/2001/mstts'>"
+            f"<voice name='{self.voice_id}'>"
+            "<mstts:silence type='Sentenceboundary' value='20ms' />"
+        )
+
+        if self.settings["style"]:
+            ssml += f"<mstts:express-as style='{self.settings['style']}'"
+            if self.settings["style_degree"]:
+                ssml += f" styledegree='{self.settings['style_degree']}'"
+            if self.settings["role"]:
+                ssml += f" role='{self.settings['role']}'"
+            ssml += ">"
+
+        prosody_attrs = []
+        if self.settings["rate"]:
+            prosody_attrs.append(f"rate='{self.settings['rate']}'")
+        if self.settings["pitch"]:
+            prosody_attrs.append(f"pitch='{self.settings['pitch']}'")
+        if self.settings["volume"]:
+            prosody_attrs.append(f"volume='{self.settings['volume']}'")
+
+        ssml += f"<prosody {' '.join(prosody_attrs)}>"
+        ssml += text
+        ssml += "</prosody>"
+
+        if self.settings["style"]:
+            ssml += "</mstts:express-as>"
+
+        ssml += "</voice></speak>"
+        return ssml
+
+    async def initialize(self):
+        """Initialize speech config and synthesizer with v2 endpoint."""
+        logger.info("Initializing Azure V2 speech synthesizer")
+        
+        # Create speech config with subscription and region
+        self.speech_config = speechsdk.SpeechConfig(
+            subscription=self.api_key,
+            region=self.region
+        )
+        
+        # Configure for streaming synthesis
+        self.speech_config.set_speech_synthesis_output_format(
+            speechsdk.SpeechSynthesisOutputFormat.Raw16Khz16BitMonoPcm
+        )
+        
+        # Set service property for websocket connection and v2 endpoint
+        self.speech_config.set_service_property(
+            "synthesizer.synthesis.connection.synthesisConnectionImpl",
+            "websocket",
+            speechsdk.ServicePropertyChannel.UriQueryParameter
+        )
+        
+        # Set service property for v2 endpoint
+        self.speech_config.set_service_property(
+            "synthesizer.synthesis.connection.url",
+            f"wss://{self.region}.tts.speech.microsoft.com/cognitiveservices/websocket/v2",
+            speechsdk.ServicePropertyChannel.UriQueryParameter
+        )
+        
+        # Enable text streaming for lower latency
+        self.speech_config.set_service_property(
+            "synthesizer.synthesis.enableTextStreaming",
+            "true",
+            speechsdk.ServicePropertyChannel.UriQueryParameter
+        )
+        
+        # Disable word boundary events for lower latency
+        self.speech_config.set_service_property(
+            "synthesizer.synthesis.enableWordBoundary",
+            "false",
+            speechsdk.ServicePropertyChannel.UriQueryParameter
+        )
+        
+        self.speech_synthesizer = speechsdk.SpeechSynthesizer(
+            speech_config=self.speech_config,
+            audio_config=None
+        )
+        
+        # Set up event handlers
+        self.speech_synthesizer.synthesizing.connect(self._handle_synthesizing)
+        self.speech_synthesizer.synthesis_completed.connect(self._handle_completed)
+        self.speech_synthesizer.synthesis_canceled.connect(self._handle_canceled)
+        logger.info("Azure V2 speech synthesizer initialized")
+
+    def _handle_synthesizing(self, evt):
+        """Handle audio chunks as they arrive."""
+        if evt.result and evt.result.audio_data:
+            logger.trace(f"Received audio chunk: {len(evt.result.audio_data)} bytes")
+            try:
+                self.audio_queue.put_nowait(evt.result.audio_data)
+            except asyncio.QueueFull:
+                logger.warning("Audio queue is full, dropping chunk")
+
+    def _handle_completed(self, evt):
+        """Handle synthesis completion."""
+        logger.debug("Speech synthesis completed")
+        try:
+            self.audio_queue.put_nowait(None)  # Signal completion
+        except asyncio.QueueFull:
+            logger.warning("Could not send completion signal, queue is full")
+
+    def _handle_canceled(self, evt):
+        """Handle synthesis cancellation."""
+        error_details = evt.error_details if hasattr(evt, 'error_details') else "Unknown error"
+        logger.error(f"Speech synthesis canceled: {error_details}")
+        try:
+            self.audio_queue.put_nowait(None)  # Signal completion
+        except asyncio.QueueFull:
+            logger.warning("Could not send cancellation signal, queue is full")
+
+    async def synthesize_speech_stream(self, text: str) -> AsyncGenerator[AudioFrame, None]:
+        """Generate speech audio stream from text using v2 endpoint."""
+        try:
+            if not self.speech_synthesizer:
+                await self.initialize()
+
+            start_time = time.time()
+            ttfb_recorded = False
+            
+            # Use a bounded queue to prevent memory issues
+            self.audio_queue = asyncio.Queue(maxsize=100)
+            
+            # Create synthesis result with text streaming
+            result_future = asyncio.create_task(
+                asyncio.to_thread(
+                    self.speech_synthesizer.speak_ssml_async(self._construct_ssml(text)).get
+                )
+            )
+
+            # Create a task for queue monitoring
+            queue_monitor = asyncio.create_task(self._monitor_queue())
+            
+            try:
+                while True:
+                    try:
+                        chunk = await asyncio.wait_for(self.audio_queue.get(), timeout=1.0)
+                        
+                        if chunk is None:  # End of stream
+                            break
+
+                        if not ttfb_recorded:
+                            ttfb_time = (time.time() - start_time) * 1000
+                            speech_metrics.add_metric(
+                                service_name="AzureV2",
+                                region=self.region,
+                                input_text=text,
+                                ttfb_ms=ttfb_time,
+                                start_time=start_time
+                            )
+                            ttfb_recorded = True
+
+                        yield AudioFrame(audio=chunk, sample_rate=self.sample_rate)
+                        self.audio_queue.task_done()
+
+                    except asyncio.TimeoutError:
+                        if result_future.done():
+                            break
+                        continue
+
+            finally:
+                queue_monitor.cancel()
+                try:
+                    await queue_monitor
+                except asyncio.CancelledError:
+                    pass
+                
+                if not result_future.done():
+                    result_future.cancel()
+                    try:
+                        await result_future
+                    except asyncio.CancelledError:
+                        pass
+
+            # Update final metrics
+            end_time = time.time()
+            for metric in speech_metrics.metrics:
+                if (metric.service_name == "AzureV2" and 
+                    metric.input_text == text and 
+                    metric.e2e_latency_ms is None):
+                    metric.e2e_latency_ms = (end_time - start_time) * 1000
+                    metric.end_time = end_time
+                    break
+
+        except Exception as e:
+            logger.error(f"Azure V2 synthesis failed: {str(e)}", exc_info=True)
+            raise
+
+    async def _monitor_queue(self):
+        """Monitor queue health and log issues."""
+        while True:
+            await asyncio.sleep(0.1)
+            qsize = self.audio_queue.qsize()
+            if qsize > 80:  # 80% full
+                logger.warning(f"Audio queue is {qsize}% full")
+
+    async def synthesize_speech(self, text: str, output_file: str, save_audio: bool = True) -> bool:
+        """Generate speech and save to file."""
+        try:
+            logger.info(f"Starting Azure V2 synthesis to file: {output_file}")
+            audio_data = bytearray()
+            
+            async for frame in self.synthesize_speech_stream(text):
+                audio_data.extend(frame.audio)
+            
+            if save_audio:
+                with wave.open(output_file, 'wb') as wav_file:
+                    wav_file.setnchannels(AUDIO_CHANNELS)
+                    wav_file.setsampwidth(AUDIO_SAMPLE_WIDTH)
+                    wav_file.setframerate(self.sample_rate)
+                    wav_file.writeframes(audio_data)
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to save Azure V2 audio: {str(e)}", exc_info=True)
+            return False
+
 def upload_to_azure_storage(local_zip_path: str, connection_string: str, container_name: str):
     """Upload a file to Azure Blob Storage"""
     try:
@@ -693,13 +951,15 @@ async def run_speech_test(
     run_azure = os.getenv('RUN_AZURE_TTS', 'false').lower() == 'true'
     run_deepgram = os.getenv('RUN_DEEPGRAM_TTS', 'false').lower() == 'true'
     run_openai = os.getenv('RUN_OPENAI_TTS', 'false').lower() == 'true'
+    run_azure_v2 = os.getenv('RUN_AZURE_V2_TTS', 'false').lower() == 'true'
     
-    logger.info(f"Services enabled - Azure: {run_azure}, Deepgram: {run_deepgram}, OpenAI: {run_openai}")
+    logger.info(f"Services enabled - Azure: {run_azure}, Deepgram: {run_deepgram}, OpenAI: {run_openai}, AzureV2: {run_azure_v2}")
     
     # Initialize only required services
     azure_synthesizer = None
     deepgram_synthesizer = None
     openai_synthesizer = None
+    azure_v2_synthesizer = None
     
     if run_azure:
         azure_synthesizer = AzureSpeechSynthesizer(
@@ -720,6 +980,13 @@ async def run_speech_test(
             sample_rate=AUDIO_SAMPLE_RATE
         )
 
+    if run_azure_v2:
+        azure_v2_synthesizer = AzureV2SpeechSynthesizer(
+            azure_key, 
+            azure_region,
+            sample_rate=AUDIO_SAMPLE_RATE
+        )
+
     # Create output directory if saving audio
     output_dir = None
     if save_audio:
@@ -736,11 +1003,13 @@ async def run_speech_test(
         # Create temporary files for this iteration
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as azure_temp, \
              tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as deepgram_temp, \
-             tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as openai_temp:
+             tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as openai_temp, \
+             tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as azure_v2_temp:
             
             azure_success = False
             deepgram_success = False
             openai_success = False
+            azure_v2_success = False
             
             # Only run enabled services
             if run_azure:
@@ -754,6 +1023,14 @@ async def run_speech_test(
             if run_openai:
                 logger.info(f"Synthesizing OpenAI for {sentence}")
                 openai_success = await openai_synthesizer.synthesize_speech(sentence, openai_temp.name, save_audio)
+            
+            if run_azure_v2:
+                logger.info(f"Synthesizing Azure V2 for {sentence}")
+                azure_v2_success = await azure_v2_synthesizer.synthesize_speech(
+                    sentence, 
+                    azure_v2_temp.name, 
+                    save_audio
+                )
             
             # Copy files to output directory if save_audio is True
             if save_audio and output_dir:
@@ -772,10 +1049,15 @@ async def run_speech_test(
                     output_file = os.path.join(output_dir, f'openai_{i+1}_{timestamp}.wav')
                     await asyncio.to_thread(shutil.copy2, openai_temp.name, output_file)
                     logger.info(f"Saved OpenAI audio to {output_file}")
+                
+                if run_azure_v2 and azure_v2_success:
+                    output_file = os.path.join(output_dir, f'azure_v2_{i+1}_{timestamp}.wav')
+                    await asyncio.to_thread(shutil.copy2, azure_v2_temp.name, output_file)
+                    logger.info(f"Saved Azure V2 audio to {output_file}")
 
             # Clean up temporary files if requested
             if cleanup:
-                for temp_file in [azure_temp.name, deepgram_temp.name, openai_temp.name]:
+                for temp_file in [azure_temp.name, deepgram_temp.name, openai_temp.name, azure_v2_temp.name]:
                     try:
                         os.unlink(temp_file)
                     except OSError:
@@ -822,6 +1104,7 @@ if __name__ == "__main__":
     run_azure = os.getenv('RUN_AZURE_TTS', 'false').lower() == 'true'
     run_deepgram = os.getenv('RUN_DEEPGRAM_TTS', 'false').lower() == 'true'
     run_openai = os.getenv('RUN_OPENAI_TTS', 'false').lower() == 'true'
+    run_azure_v2 = os.getenv('RUN_AZURE_V2_TTS', 'false').lower() == 'true'
     
     if run_azure and not all([azure_speech_key, azure_speech_region]):
         raise ValueError("Azure Speech credentials not found in .env file")
@@ -830,7 +1113,7 @@ if __name__ == "__main__":
     if run_openai and not openai_api_key:
         raise ValueError("OpenAI API key not found in .env file")
     
-    if not any([run_azure, run_deepgram, run_openai]):
+    if not any([run_azure, run_deepgram, run_openai, run_azure_v2]):
         raise ValueError("No TTS services enabled. Set at least one of RUN_AZURE_TTS, RUN_DEEPGRAM_TTS, or RUN_OPENAI_TTS to true")
     
     logger.info(f"Starting speech test with {args.iterations} iterations and {args.wait_time}s wait time")
