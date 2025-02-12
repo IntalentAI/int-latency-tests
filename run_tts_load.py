@@ -216,12 +216,19 @@ class AzureSpeechSynthesizer:
     async def initialize(self):
         """Initialize speech config and synthesizer."""
         logger.info("Initializing Azure speech synthesizer")
-        self.speech_config = speechsdk.SpeechConfig(
-            subscription=self.api_key,
-            region=self.region,
-             endpoint=self.endpoint,
-            speech_recognition_language=self.settings["language"]
-        )
+        if self.endpoint:
+            self.speech_config = speechsdk.SpeechConfig(
+                endpoint=self.endpoint,
+                subscription=self.api_key,
+                speech_recognition_language=self.settings["language"]
+            )
+        else:
+            self.speech_config = speechsdk.SpeechConfig(
+                subscription=self.api_key,
+                region=self.region,
+                speech_recognition_language=self.settings["language"]
+            )
+        
         self.speech_config.set_speech_synthesis_output_format(
             speechsdk.SpeechSynthesisOutputFormat.Raw16Khz16BitMonoPcm
         )
