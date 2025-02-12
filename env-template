@@ -1,7 +1,7 @@
 # Azure Speech Service Configuration
 AZURE_SPEECH_API_KEY=
 AZURE_SPEECH_REGION=
-
+AZURE_ENDPOINT=
 # Azure Storage Configuration
 AZURE_STORAGE_CONNECTION_STRING=
 

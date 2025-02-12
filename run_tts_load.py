@@ -137,6 +137,7 @@ class AzureSpeechSynthesizer:
         self,
         api_key: str,
         region: str,
+        endpoint: str = None,
         voice: str = AZURE_DEFAULT_VOICE,
         sample_rate: int = AUDIO_SAMPLE_RATE,
         params: Optional[Dict[str, Any]] = None
@@ -145,6 +146,7 @@ class AzureSpeechSynthesizer:
         self.region = region
         self.voice_id = voice
         self.sample_rate = sample_rate
+        self.endpoint = endpoint
         
         # Default settings
         self.settings = {
@@ -217,6 +219,7 @@ class AzureSpeechSynthesizer:
         self.speech_config = speechsdk.SpeechConfig(
             subscription=self.api_key,
             region=self.region,
+             endpoint=self.endpoint,
             speech_recognition_language=self.settings["language"]
         )
         self.speech_config.set_speech_synthesis_output_format(
@@ -678,6 +681,7 @@ def upload_to_azure_storage(local_zip_path: str, connection_string: str, contain
 async def run_speech_test(
     azure_key: str,
     azure_region: str,
+    azure_endpoint: str,
     deepgram_key: str,
     openai_key: str,
     num_iterations: int = 100,
@@ -705,6 +709,7 @@ async def run_speech_test(
         azure_synthesizer = AzureSpeechSynthesizer(
             azure_key, 
             azure_region,
+            azure_endpoint,
             sample_rate=AUDIO_SAMPLE_RATE
         )
         
@@ -815,6 +820,7 @@ if __name__ == "__main__":
     # Get environment variables
     azure_speech_key = os.getenv('AZURE_SPEECH_API_KEY')
     azure_speech_region = os.getenv('AZURE_SPEECH_REGION')
+    azure_endpoint = os.getenv('AZURE_ENDPOINT')
     deepgram_api_key = os.getenv('DEEPGRAM_API_KEY')
     openai_api_key = os.getenv('OPENAI_API_KEY')
     
@@ -839,6 +845,7 @@ if __name__ == "__main__":
     asyncio.run(run_speech_test(
         azure_speech_key,
         azure_speech_region,
+        azure_endpoint,
         deepgram_api_key,
         openai_api_key,
         num_iterations=args.iterations,
