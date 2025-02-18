@@ -244,6 +244,11 @@ class AzureSpeechSynthesizer:
             speech_config=self.speech_config,
             audio_config=None
         )
+
+        # Establish and open the connection
+        self.connection = speechsdk.Connection.from_speech_synthesizer(self.speech_synthesizer)
+        self.connection.open(True)
+        logger.info("Connection opened successfully")
         
         # Set up event handlers
         self.speech_synthesizer.synthesizing.connect(self._handle_synthesizing)

@@ -15,6 +15,7 @@ This will help us understand the latency of each service and how it affects the 
 
 1. **Install dependencies** (using Python 3.13+):
 ```bash
+uv venv
 uv pip install -r pyproject.toml
 ```
 
@@ -34,9 +35,9 @@ AZURE_STORAGE_CONN_STRING=<optional>
 ```
 3. Run TTS Latency Suite:
 ```bash
-python run_tts_load.py \
-  --iterations 100 \
-  --wait_time 15 \
+uv run python run_tts_load.py \
+  --iterations 200 \
+  --wait-time 30 \
   --cleanup
 ```
 Arguments:
@@ -50,7 +51,7 @@ Arguments:
 ```
 4. Analyze Metrics
 ```bash
-python tts_metrics_analysis.py
+uv run python tts_metrics_analysis.py
 ```
 
 Output:
