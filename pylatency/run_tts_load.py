@@ -164,6 +164,17 @@ class AzureSpeechSynthesizer:
         self.speech_synthesizer = None
         self.audio_queue = asyncio.Queue()
         
+        # Add logging configuration
+        self.enable_logging = os.getenv('ENABLE_AZURE_SPEECH_LOGGING', 'false').lower() == 'true'
+        if self.enable_logging:
+            log_dir = os.path.join('data', 'logs', 'azure_speech')
+            os.makedirs(log_dir, exist_ok=True)
+            self.log_file = os.path.join(
+                log_dir, 
+                f'azure_speech_log_{datetime.now().strftime("%Y%m%d_%H%M%S")}.txt'
+            )
+            logger.info(f"Azure Speech logging enabled. Log file: {self.log_file}")
+        
         logger.info(f"Initialized Azure TTS with voice: {voice}, region: {region}")
 
     def _construct_ssml(self, text: str) -> str:
@@ -219,6 +230,15 @@ class AzureSpeechSynthesizer:
             region=self.region,
             speech_recognition_language=self.settings["language"]
         )
+        
+        # Enable logging if configured
+        if self.enable_logging:
+            self.speech_config.set_property(
+                speechsdk.PropertyId.Speech_LogFilename,
+                self.log_file
+            )
+            logger.info(f"Enabled Azure Speech logging to {self.log_file}")
+        
         self.speech_config.set_speech_synthesis_output_format(
             speechsdk.SpeechSynthesisOutputFormat.Raw16Khz16BitMonoPcm
         )
@@ -686,6 +706,17 @@ class AzureV2SpeechSynthesizer:
         self.speech_synthesizer = None
         self.audio_queue = asyncio.Queue()
         
+        # Add logging configuration
+        self.enable_logging = os.getenv('ENABLE_AZURE_SPEECH_LOGGING', 'false').lower() == 'true'
+        if self.enable_logging:
+            log_dir = os.path.join('data', 'logs', 'azure_speech')
+            os.makedirs(log_dir, exist_ok=True)
+            self.log_file = os.path.join(
+                log_dir, 
+                f'azure_v2_speech_log_{datetime.now().strftime("%Y%m%d_%H%M%S")}.txt'
+            )
+            logger.info(f"Azure V2 Speech logging enabled. Log file: {self.log_file}")
+        
         logger.info(f"Initialized Azure V2 TTS with voice: {voice}, region: {region}")
 
     def _construct_ssml(self, text: str) -> str:
@@ -734,6 +765,14 @@ class AzureV2SpeechSynthesizer:
             subscription=self.api_key,
             region=self.region
         )
+        
+        # Enable logging if configured
+        if self.enable_logging:
+            self.speech_config.set_property(
+                speechsdk.PropertyId.Speech_LogFilename,
+                self.log_file
+            )
+            logger.info(f"Enabled Azure V2 Speech logging to {self.log_file}")
         
         # Configure for streaming synthesis
         self.speech_config.set_speech_synthesis_output_format(
