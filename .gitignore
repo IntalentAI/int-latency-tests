@@ -1,2 +1,9 @@
 .env
 log*
+data/*
+golatency/data/*
+ind_metrics/*
+us_metrics/*
+pylatency/data/*
+pylatency/llm_metrics_analysis_output/*
+llm_metrics_analysis_output/*

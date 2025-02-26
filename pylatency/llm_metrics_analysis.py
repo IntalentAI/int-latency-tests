@@ -18,9 +18,20 @@ import sys
 import argparse
 import json
 from collections import defaultdict
+import os
 
+# Create base output directory
+base_output_dir = "llm_metrics_analysis_output"
+os.makedirs(base_output_dir, exist_ok=True)
+
+# Configure logging
 logger.remove(0)
 logger.add(sys.stderr, level="DEBUG")
+timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+logger.add(
+    f"{base_output_dir}/analysis_log_{timestamp}.log",
+    level="DEBUG",
+)
 
 # Set the style for all visualizations
 plt.style.use('seaborn-v0_8')
@@ -34,13 +45,13 @@ def parse_args():
     parser.add_argument(
         '-i', '--input',
         type=str,
-        help='Input metrics CSV file path. If not provided, uses latest metrics file from data directory.'
+        help='Input metrics CSV file path. If not provided, uses latest metrics file from llm_metrics_analysis_output directory.'
     )
     parser.add_argument(
         '-o', '--output',
         type=str,
-        help='Output directory path for analysis results. Default: ./data/llm_metrics_analysis_output',
-        default='./data/llm_metrics_analysis_output'
+        help='Output directory path for analysis results. Default: ./llm_metrics_analysis_output/analysis_[timestamp]',
+        default=os.path.join(base_output_dir, f'analysis_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
     )
     parser.add_argument(
         '--model',
@@ -618,15 +629,11 @@ def calculate_conversation_statistics(df: pd.DataFrame, model_filter: Optional[s
     return stats_df
 
 def get_latest_metrics_file(data_dir: Path) -> Path:
-    """Get the most recent LLM metrics CSV file from the data directory."""
-    metrics_files = list(data_dir.glob("*llm_metrics*.csv"))
+    """Get the most recent metrics CSV file from the specified directory."""
+    metrics_files = list(data_dir.glob('llm_metrics_*.csv'))
     if not metrics_files:
-        raise FileNotFoundError("No LLM metrics files found in data directory")
-    
-    # Sort by modification time, most recent first
-    latest_file = max(metrics_files, key=lambda x: x.stat().st_mtime)
-    logger.info(f"Using metrics file: {latest_file}")
-    return latest_file
+        raise FileNotFoundError(f"No metrics files found in {data_dir}")
+    return max(metrics_files, key=lambda p: p.stat().st_mtime)
 
 def plot_latency_boxplot_comparison(df: pd.DataFrame, output_dir: Path, model_filter: Optional[str] = None):
     """Create comprehensive box-whisker plots comparing latency metrics across regions."""
@@ -771,73 +778,61 @@ def plot_latency_vs_tokens(df: pd.DataFrame, output_dir: Path, model_filter: Opt
     logger.info(f"Saved latency vs tokens plot to {output_file}")
 
 def main():
-    """Main function to run the analysis."""
+    """Main entry point for the analysis script."""
     args = parse_args()
     
-    # Setup paths
-    script_dir = Path(__file__).parent
+    # Create output directory with timestamp
     output_dir = Path(args.output)
-    output_dir.mkdir(exist_ok=True, parents=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Analysis results will be saved to: {output_dir}")
     
-    try:
-        # Get metrics file
-        if args.input:
-            metrics_file = Path(args.input)
-            if not metrics_file.exists():
-                raise FileNotFoundError(f"Input file not found: {metrics_file}")
+    # Get input file
+    if args.input:
+        input_file = Path(args.input)
+    else:
+        data_dir = Path('llm_metrics_analysis_output')
+        if not data_dir.exists():
+            raise FileNotFoundError(f"Directory not found: {data_dir}")
+        input_file = get_latest_metrics_file(data_dir)
+    
+    logger.info(f"Using metrics file: {input_file}")
+    
+    # Load and process data
+    df = load_metrics_data(input_file)
+    
+    # Generate all visualizations and statistics
+    plot_latency_over_time(df, output_dir, args.model)
+    plot_tokens_per_second(df, output_dir, args.model)
+    plot_latency_distribution(df, output_dir, args.model)
+    plot_region_comparison(df, output_dir, args.model)
+    plot_latency_boxplot_comparison(df, output_dir, args.model)
+    plot_latency_vs_tokens(df, output_dir, args.model)
+    plot_latency_vs_conversation_length(df, output_dir, args.model)
+    
+    # Calculate and save statistics
+    stats_df = calculate_statistics(df, args.model)
+    stats_file = output_dir / 'latency_statistics.csv'
+    stats_df.to_csv(stats_file)
+    logger.info(f"Saved statistics to {stats_file}")
+    
+    # Analyze conversation patterns
+    analyze_conversation_patterns(df, output_dir, args.model)
+    
+    # Analyze response patterns if responses directory is provided
+    if args.responses_dir:
+        responses_dir = Path(args.responses_dir)
+        if responses_dir.exists():
+            analyze_response_patterns(responses_dir, output_dir, args.model)
         else:
-            data_dir = script_dir / "data"
-            metrics_file = get_latest_metrics_file(data_dir)
-        
-        logger.info(f"Using metrics file: {metrics_file}")
-        
-        # Load and validate data
-        df = load_metrics_data(metrics_file)
-        logger.info(f"Loaded {len(df)} records")
-        
-        # Apply model filter if specified
-        model_filter = args.model
-        if model_filter and model_filter not in df['model'].unique():
-            logger.warning(f"Model {model_filter} not found in data. Available models: {df['model'].unique()}")
-            model_filter = None
-        
-        # Generate standard visualizations
-        plot_latency_over_time(df, output_dir, model_filter)
-        plot_tokens_per_second(df, output_dir, model_filter)
-        plot_latency_distribution(df, output_dir, model_filter)
-        plot_region_comparison(df, output_dir, model_filter)
-        
-        # Generate enhanced visualizations
-        plot_latency_boxplot_comparison(df, output_dir, model_filter)
-        plot_latency_vs_tokens(df, output_dir, model_filter)
-        
-        # Generate conversation-specific visualizations
-        analyze_conversation_patterns(df, output_dir, model_filter)
-        plot_latency_vs_conversation_length(df, output_dir, model_filter)
-        
-        # Analyze response patterns if responses directory is provided
-        if args.responses_dir:
-            analyze_response_patterns(Path(args.responses_dir), output_dir, model_filter)
-        
-        # Calculate and save statistics
-        stats_df = calculate_statistics(df, model_filter)
-        conversation_stats_df = calculate_conversation_statistics(df, model_filter)
-        
-        model_suffix = f"_{model_filter.replace('-', '_')}" if model_filter else ""
-        stats_file = output_dir / f'region_statistics{model_suffix}.csv'
-        conversation_stats_file = output_dir / f'conversation_statistics{model_suffix}.csv'
-        
-        stats_df.to_csv(stats_file, index=False)
-        conversation_stats_df.to_csv(conversation_stats_file, index=False)
-        
-        logger.info(f"\nRegion Statistics saved to {stats_file}")
-        logger.info(stats_df.to_string())
-        logger.info(f"\nConversation Statistics saved to {conversation_stats_file}")
-        logger.info(conversation_stats_df.to_string())
-        
-    except Exception as e:
-        logger.error(f"Error during analysis: {str(e)}", exc_info=True)
-        sys.exit(1)
+            logger.warning(f"Responses directory not found: {responses_dir}")
+    
+    # Calculate and save conversation statistics
+    conv_stats_df = calculate_conversation_statistics(df, args.model)
+    conv_stats_file = output_dir / 'conversation_statistics.csv'
+    conv_stats_df.to_csv(conv_stats_file)
+    logger.info(f"Saved conversation statistics to {conv_stats_file}")
+    
+    logger.info("Analysis completed successfully")
 
 if __name__ == "__main__":
     main() 
